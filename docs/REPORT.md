@@ -243,6 +243,17 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ![Marginal signals](../figures/marginal_signals.png)
 
+**Do spatial and temporal flexibility add up?** I extended the cumulative-flow LP to many regions. Each origin's flexible work must still finish within its slack, but in any hour it can run in any region within the latency limit, subject to that region's capacity. The LP is tested to reduce exactly to temporal-only and spatial-only shifting. I solved it for the European and the US GCP regions (100 ms, 24 h slack, 2022, monthly blocks).
+
+| Group, headroom | Temporal alone | Spatial alone | Joint | Temporal's extra on top of spatial |
+|---|---:|---:|---:|---:|
+| Europe, real (1/0.70) | 5.4% | 24.4% | 25.2% | +0.8 pp |
+| Europe, unlimited | 9.4% | 35.9% | 38.9% | +3.0 pp |
+| US, real (1/0.70) | 5.1% | 13.4% | 14.1% | +0.7 pp |
+| US, unlimited | 9.2% | 28.1% | 34.8% | +6.7 pp |
+
+**Finding 13: under real power caps, the two flexibilities compete for the same headroom.** Migration fills the clean regions' spare capacity, which leaves no room there for time shifting. With Google-real headroom, temporal shifting keeps only 14-14% of its standalone value once migration is allowed; with unlimited capacity it still adds 3-7 pp. For a cloud whose work can migrate, headroom in clean regions is the binding resource, and investing in temporal flexibility pays off mainly for work that cannot move.
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;

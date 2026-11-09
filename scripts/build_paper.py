@@ -584,6 +584,26 @@ def build(n: dict) -> None:
         "despite a moderate average. The marginal factors are coarse (season × hour bins), so part of their larger swing is estimation noise.")
     P.figure(FIG / "marginal_signals.png", "Under marginal signals (EIA-930, 2022): capacity value versus signal swing (left); average versus marginal mean intensity per BA (right).")
 
+    jt = pd.read_csv(RES / "joint_summary.csv").set_index(["group", "cap"])
+    jv = lambda g, c, col: float(jt.loc[(g, c), col])
+    real, unl = "real (1/0.70)", "unlimited"
+    P.h("5.7 Do spatial and temporal flexibility add up?", 2)
+    P.p(
+        "We extend (1) to many regions. Flexible work from origin o may run in any region within the latency limit, in any hour of its slack, subject to each "
+        "destination's capacity. Because all arrivals share one slack, FIFO per origin is optimal, and the cumulative bounds of (1) apply per origin; the LP is "
+        "tested to reduce exactly to temporal-only and spatial-only shifting. We solve it for the European and US GCP regions (100 ms, 24 h slack, 2022, monthly "
+        "blocks).")
+    rows = [[f"{g}, {c}"] + [f"{jv(g, c, k):.1f}%" for k in ("temporal_pct", "spatial_pct", "joint_pct")] + [f"+{jv(g, c, 'joint_extra_over_spatial_pct'):.1f} pp"]
+            for g in ("Europe", "US") for c in (real, unl)]
+    P.table(["Group, headroom", "Temporal alone", "Spatial alone", "Joint", "Temporal on top of spatial"], rows,
+            "Facility-fleet CO2 reduction from temporal, spatial and joint shifting under per-region capacity.", widths=[1.9, 1.0, 1.0, 0.8, 1.5])
+    P.p(
+        "**Under real power caps, the two flexibilities compete for the same headroom.** Migration fills the clean regions' spare capacity, which leaves no room "
+        f"for time shifting. Temporal shifting saves {jv('Europe', real, 'temporal_pct'):.1f}% (Europe) and {jv('US', real, 'temporal_pct'):.1f}% (US) alone, "
+        f"but adds only {jv('Europe', real, 'joint_extra_over_spatial_pct'):.1f} and {jv('US', real, 'joint_extra_over_spatial_pct'):.1f} percentage points on top of "
+        f"migration; with unlimited capacity it still adds {jv('Europe', unl, 'joint_extra_over_spatial_pct'):.1f} and {jv('US', unl, 'joint_extra_over_spatial_pct'):.1f}. "
+        "For migratable work, headroom in clean regions is the binding resource; temporal flexibility matters mainly for work that cannot move.")
+
     # ------------------------------------------------------------------ 6 redundancy
     P.h("6 The Redundancy Dividend")
     P.p(

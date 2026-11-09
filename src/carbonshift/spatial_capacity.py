@@ -73,3 +73,60 @@ def spatial_shift(ci: np.ndarray, regions: list[str], latency: np.ndarray, phi: 
         shadow[t] = -res.ineqlin.marginals
     baseline = float(ci.sum() / (T * R))
     return SpatialResult(list(regions), baseline, float(total / (T * R)), shadow)
+
+
+def joint_shift(ci: np.ndarray, regions: list[str], latency: np.ndarray, phi: float, cap, limit_ms: float, slack: int) -> float:
+    """Joint spatial + temporal shifting under per-region capacity; returns mean g/kWh over regions and hours.
+
+    Flexible work arriving at origin o in hour t (phi per hour) may run in any
+    reachable region d in any hour s in [t, t+slack]. Because every arrival has
+    the same slack, FIFO per origin is optimal, so feasibility reduces to
+    cumulative bounds on each origin's served work (as in ``facility.capped_shift``).
+
+    Variables: y[p, s] (work of pair p = (o, d) served in hour s) and the
+    cumulative Y[o, s] = Y[o, s-1] + sum_d y[(o, d), s].
+    """
+    ci = np.asarray(ci, dtype=float)
+    T, R = ci.shape
+    caps = np.broadcast_to(np.asarray(cap, dtype=float), (R,))
+    pairs = allowed_pairs(latency, limit_ms)
+    P = len(pairs)
+    o_of = np.array([p[0] for p in pairs])
+    d_of = np.array([p[1] for p in pairs])
+    ny = P * T
+    n = ny + R * T
+    yi = lambda p, s: p * T + s
+    Yi = lambda o, s: ny + o * T + s
+
+    c = np.zeros(n)
+    c[:ny] = ci[:, d_of].T.ravel()  # y[p, s] costs ci[s, d_p]
+
+    # Equalities: Y[o,s] - Y[o,s-1] - sum_{p: o_p=o} y[p,s] = 0
+    rows, cols, vals = [], [], []
+    s_idx = np.arange(T)
+    for o in range(R):
+        r0 = o * T
+        rows += list(r0 + s_idx); cols += list(Yi(o, s_idx)); vals += [1.0] * T
+        rows += list(r0 + s_idx[1:]); cols += list(Yi(o, s_idx[1:] - 1)); vals += [-1.0] * (T - 1)
+        for p in np.where(o_of == o)[0]:
+            rows += list(r0 + s_idx); cols += list(yi(p, s_idx)); vals += [-1.0] * T
+    A_eq = sparse.csr_matrix((vals, (rows, cols)), shape=(R * T, n))
+    b_eq = np.zeros(R * T)
+
+    # Destination capacity: sum_{p: d_p=d} y[p,s] <= cap_d - (1 - phi)
+    rows, cols = [], []
+    for d in range(R):
+        for p in np.where(d_of == d)[0]:
+            rows += list(d * T + s_idx); cols += list(yi(p, s_idx))
+    A_ub = sparse.csr_matrix((np.ones(len(rows)), (rows, cols)), shape=(R * T, n))
+    b_ub = np.repeat(caps - (1 - phi), T)
+
+    arrived = phi * np.arange(1, T + 1)
+    due = np.zeros(T)
+    due[slack:] = arrived[: T - slack]
+    due[-1] = arrived[-1]
+    bounds = [(0, None)] * ny + [(due[s], arrived[s]) for _ in range(R) for s in range(T)]
+    res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+    if res.status != 0:
+        raise RuntimeError(res.message)
+    return float((res.fun + (1 - phi) * ci.sum()) / (T * R))

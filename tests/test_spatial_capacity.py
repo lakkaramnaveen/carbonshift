@@ -41,3 +41,19 @@ def test_latency_limit_monotone():
     ci, regs, lat = _setup(seed=2)
     vals = [spatial_shift(ci, regs, lat, 0.5, 1.5, limit_ms=L).optimised_g for L in (0, 50, 100, 300)]
     assert all(x >= y - 1e-9 for x, y in zip(vals, vals[1:]))
+
+
+def test_joint_reduces_to_temporal_and_spatial():
+    from carbonshift.facility import capped_shift
+    from carbonshift.spatial_capacity import joint_shift
+    ci, regs, lat = _setup(T=72, R=3, seed=5)
+    # no migration -> per-region temporal shifting
+    j = joint_shift(ci, regs, lat, 0.5, 1.3, limit_ms=-1, slack=6)
+    t = np.mean([capped_shift(ci[:, r], 0.5, 1.3, 6).optimised_g for r in range(3)])
+    assert j == pytest.approx(t, rel=1e-7)
+    # no slack -> spatial-only shifting
+    j0 = joint_shift(ci, regs, lat, 0.5, 1.3, limit_ms=300, slack=0)
+    assert j0 == pytest.approx(spatial_shift(ci, regs, lat, 0.5, 1.3, 300).optimised_g, rel=1e-7)
+    # joint is at least as good as either
+    j_full = joint_shift(ci, regs, lat, 0.5, 1.3, limit_ms=300, slack=6)
+    assert j_full <= min(j, j0) + 1e-9
