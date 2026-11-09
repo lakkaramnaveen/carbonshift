@@ -286,6 +286,7 @@ REFS = [
     "Dell Technologies. Product Carbon Footprint, PowerEdge R650 (2022); Life Cycle Assessment, PowerEdge R760.",
     "NVIDIA. HGX H100 Product Carbon Footprint Summary (cradle-to-gate), 2024.",
     "vladkens. macmon: sudoless performance monitoring CLI for Apple Silicon. https://github.com/vladkens/macmon.",
+    "L. Wu, W. A. Hanafy, A. Souza, K. Nguyen, J. Harkes, D. Irwin, M. Satyanarayanan, P. Shenoy. CarbonEdge: Leveraging Mesoscale Spatial Carbon-Intensity Variations for Low Carbon Edge Computing. In Proc. HPDC, 2025. arXiv:2502.14076.",
     "V. Sakalkar, V. Kontorinis, D. Landhuis, S. Li, D. De Ronde, T. Blooming, A. Ramesh, J. Kennedy, C. Malone, et al. Data Center Power Oversubscription with a Medium Voltage Power Plane and Priority-Aware Capping. In Proc. ASPLOS, 2020. Traces: Google PowerData2019, https://github.com/google/cluster-data (CC-BY 4.0).",
 ]
 
@@ -448,7 +449,7 @@ def build(n: dict) -> None:
     dmd = dsh.loc[[i for i in dsh.index if i.startswith("most")][0]]
     P.h("4.4 Real facilities: Google power traces", 2)
     P.p(
-        "To ground the headroom axis in real data, we use Google's public PowerData2019 traces [28]: 5-minute power utilisation of 57 power domains "
+        "To ground the headroom axis in real data, we use Google's public PowerData2019 traces [29]: 5-minute power utilisation of 57 power domains "
         f"in May 2019. The domains run at a median {ds['mean_util_median'] * 100:.0f}% of their power capacity "
         f"({ds['mean_util_min'] * 100:.0f}-{ds['mean_util_max'] * 100:.0f}%), so real facilities have about +{ds['headroom_median_pct']:.0f}% headroom above mean load. "
         f"At each domain's real headroom, carbon-aware shifting keeps a median {ds['kept_median_pct']:.0f}% of the ideal saving "
@@ -520,6 +521,27 @@ def build(n: dict) -> None:
         rows.append([label] + [fmt_.format(rob.loc[y, col]) for y in (2020, 2021, 2022)])
     P.table(["Metric", "2020", "2021", "2022"], rows, "Robustness of the facility findings across three years of traces.",
             widths=[3.2, 0.8, 0.8, 0.8])
+
+    st = pd.read_csv(RES / "siting_summary.csv").set_index("latency_ms")
+    sr = pd.read_csv(RES / "siting_per_region.csv").set_index("zone")
+    qc = sr.loc["CA-QC", "spatial_100ms_kg_per_kw_yr"]
+    tmed = st.temporal_median.iloc[0]
+    P.h("5.4 Where should the next kilowatt go?", 2)
+    P.p(
+        f"We take a cloud's real regions: the {len(sr)} GCP regions whose grids are in the dataset, with measured inter-region latency [19]. Each region "
+        "hosts a facility at Google's real 70% utilisation (Sec. 4.4) with half its load flexible. An hourly migration LP moves flexible work to any region "
+        "within a latency limit, subject to destination capacity. Its capacity duals give each region's *spatial* shadow price, which we compare with the "
+        f"*temporal* shadow price from (1). With a 100 ms limit, migration cuts fleet emissions by {st.loc[100, 'spatial_reduction_pct']:.1f}%. "
+        f"**Spatial and temporal flexibility want capacity in different places.** One extra kW in Quebec is worth {qc:,.0f} kg CO2/yr as a destination, "
+        f"{qc / tmed:.0f}x the median temporal value ({tmed:.0f} kg), but only {sr.loc['CA-QC', 'temporal_kg_per_kw_yr']:.1f} kg for time shifting on its flat "
+        f"grid. Spatial value tracks low mean intensity (Spearman {st.loc[100, 'spearman_spatial_vs_mean_ci']:.2f} at 100 ms, "
+        f"{st.loc[250, 'spearman_spatial_vs_mean_ci']:.2f} at 250 ms); temporal value tracks daily variability "
+        f"({st.spearman_temporal_vs_daily_cv.iloc[0]:.2f}). The two rankings are negatively correlated "
+        f"({st.spearman_spatial_vs_temporal.min():.2f} to {st.spearman_spatial_vs_temporal.max():.2f}). Siting for carbon therefore depends on the "
+        "workload: build where the grid is clean if work can migrate, and where it is variable if work must stay (latency, data residency). This complements "
+        "capacity-shifting and mesoscale studies by the same community [4, 28]. Caveat: under marginal accounting, extra load in a hydro-exporting region "
+        "may displace exports, so marginal emissions there can far exceed the average.")
+    P.figure(FIG / "siting_spatial_vs_temporal.png", "Spatial (migration, 100 ms) versus temporal value of one extra kW in 32 GCP regions.", width=4.8)
 
     # ------------------------------------------------------------------ 6 redundancy
     P.h("6 The Redundancy Dividend")

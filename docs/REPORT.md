@@ -186,6 +186,21 @@ Results at 65% design utilisation, mean over 123 zones, with half the load flexi
 
 Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a zone that values capacity highly in one year does so in the next. **Finding 9: the carbon value of capacity is rising.** The median shadow price grew 17% from 2020 to 2022. Three years is too short to call it a trend, but it runs opposite to the paper's observation that the *relative* benefit of carbon-aware scheduling shrinks as grids get greener. As variability grows, headroom becomes worth more.
 
+**Where should the next kW go?** Take a cloud's real regions: the 32 GCP regions whose grids are in the dataset, with measured inter-region latency. Give every region a facility at Google's real 70% utilisation, with half its load flexible. Two shadow prices of capacity follow:
+- **spatial:** the annual dual of each region's capacity in an hourly migration LP under a latency limit (`src/carbonshift/spatial_capacity.py`);
+- **temporal:** the dual from the capped time-shifting LP.
+
+| | 50 ms | 100 ms | 250 ms |
+|---|---:|---:|---:|
+| Fleet CO₂ reduction from migration | 14.2% | 18.5% | 21.2% |
+| Top-3 regions by spatial value | CA-QC, CA-ON, US-NW-PACW | CA-QC, CA-ON, FR | CA-QC, CA-ON, FR |
+| Spearman: spatial value vs mean CI | -0.61 | -0.84 | -0.97 |
+| Spearman: spatial vs temporal value | -0.15 | -0.39 | -0.22 |
+
+**Finding 10: spatial and temporal flexibility want capacity in different places.** One extra kW in Quebec is worth 2,943 kg CO₂/yr as a migration destination (100 ms), 22x the median temporal value of 137 kg, yet only 1.5 kg for time shifting because its grid is flat. The best temporal sites (AU-NSW, US-NW-NEVP, US-NW-PACE) are dirty, variable grids that are nearly worthless as migration destinations. Where migration is allowed, siting for carbon means building where the grid is clean. Where data must stay put (latency, residency), it means building where the grid is variable. **Caveat:** this uses average intensity, as the paper does. Extra load in a hydro-exporting region such as Quebec can displace exports, so its marginal emissions may be far higher than its 28 g/kWh average.
+
+![Siting](../figures/siting_spatial_vs_temporal.png)
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
