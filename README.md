@@ -40,6 +40,8 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Build power, not servers.** Tier redundancy (the N+1 or 2N spare) is free carbon headroom. Using it closes 36–73% of the gap to the ideal saving, and maintenance and failures cost under 0.01 percentage points.
 
+**Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
+
 ![Facility headroom](figures/facility_retained.png)
 
 ## Interactive explorer
@@ -85,6 +87,8 @@ scripts/
   facility_experiments.py   headroom x flexibility x slack sweep, battery sweep
   llm_power_batch.py        GPU power / throughput / energy per token vs batch size (MLX)
   redundancy_experiments.py shadow price of capacity, embodied payback, redundancy dividend
+  robustness_years.py       re-run facility findings on 2020 / 2021 / 2022 traces
+  build_paper.py            generate carbonshift_paper.docx from results/*.csv
 tests/          44 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV

@@ -154,6 +154,18 @@ Results at 65% design utilisation, mean over 123 zones, with half the load flexi
 
 ![Redundancy dividend](../figures/redundancy_dividend.png)
 
+**Robustness across years.** The facility findings are not an artefact of 2022 (`scripts/robustness_years.py`; phi = 0.5, 24 h slack, the 120 zones with non-constant traces).
+
+| Metric | 2020 | 2021 | 2022 |
+|---|---:|---:|---:|
+| Share of ideal kept, +20% headroom | 36.7% | 36.0% | 35.6% |
+| Share of ideal kept, +50% headroom | 58.7% | 58.0% | 58.0% |
+| Shadow price of capacity, median (kg/kW-yr) | 198 | 217 | 232 |
+| CPU servers repaid within life | 15% | 18% | 23% |
+| Gap closed by N+1 / 2N | 35% / 72% | 35% / 72% | 36% / 73% |
+
+Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a zone that values capacity highly in one year does so in the next. **Finding 9: the carbon value of capacity is rising.** The median shadow price grew 17% from 2020 to 2022. Three years is too short to call it a trend, but it runs opposite to the paper's observation that the *relative* benefit of carbon-aware scheduling shrinks as grids get greener. As variability grows, headroom becomes worth more.
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;

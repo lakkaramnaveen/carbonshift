@@ -84,6 +84,10 @@ def load_numbers() -> dict:
     ps = pd.read_csv(RES / "redundancy_payback_summary.csv")
     n["pay"] = ps
     n["pg"] = lambda sl, cap, col: float(ps[(ps.slack == sl) & np.isclose(ps.cap, cap)][col].iloc[0])
+    n["rob"] = pd.read_csv(RES / "robustness_years_summary.csv").set_index("year")
+    rc = pd.read_csv(RES / "robustness_years_shadow_rankcorr.csv", index_col=0)
+    off = rc.where(rc < 0.9999)
+    n["rob_rc"] = (off.min().min(), off.max().max())
     rd = pd.read_csv(RES / "redundancy_dividend_summary.csv")
     n["rd"] = rd
     n["rg"] = lambda u, t, c: float(rd[np.isclose(rd.u, u) & (rd.topology == t)][c].iloc[0])
@@ -464,6 +468,26 @@ def build(n: dict) -> None:
         f"absorb shifted work pay back within a five-year life in just {f(pg(24, 1.2, 'cpu_servers_pays_back_in_life_pct'), 0)}% of zones; GPU servers, with far "
         f"lower embodied carbon per watt, do so in {f(pg(24, 1.2, 'gpu_servers_pays_back_in_life_pct'), 0)}%. Carbon-aware shifting should therefore use idle "
         "compute that already exists, and a power-constrained operator gains most by adding *electrical* headroom.")
+
+    rob = n["rob"]
+    P.h("5.3 Robustness across years", 2)
+    P.p(
+        "We repeat the facility analysis for 2020 and 2021 (φ = 0.5, 24 h slack; the 120 zones with non-constant traces). Table 5 shows that the headline "
+        "results are stable. Per-zone shadow prices rank-correlate at Spearman "
+        f"{n['rob_rc'][0]:.2f}-{n['rob_rc'][1]:.2f} between years, so a ranking of where capacity is most valuable carries over from one year to the next. "
+        f"**The carbon value of capacity is rising:** the median shadow price grew {(rob.loc[2022, 'kg_per_kw_year_median'] / rob.loc[2020, 'kg_per_kw_year_median'] - 1) * 100:.0f}% "
+        "from 2020 to 2022. Three years is too short to establish a trend, but the direction is notable. It runs opposite to the observation in [1] that the "
+        "*relative* benefit of carbon-aware scheduling shrinks as grids decarbonise: as grids become more variable, headroom becomes more valuable.")
+    rows = []
+    for label, col, fmt_ in (("Share of ideal kept, +20% headroom", "kept_20pct_headroom", "{:.1f}%"),
+                             ("Share of ideal kept, +50% headroom", "kept_50pct_headroom", "{:.1f}%"),
+                             ("Shadow price of capacity, median (kg/kW-yr)", "kg_per_kw_year_median", "{:.0f}"),
+                             ("CPU servers repaid within life", "cpu_pays_back_in_life_pct", "{:.0f}%"),
+                             ("Gap to ideal closed by N+1", "gap_closed_N+1_pct", "{:.0f}%"),
+                             ("Gap to ideal closed by 2N", "gap_closed_2N_pct", "{:.0f}%")):
+        rows.append([label] + [fmt_.format(rob.loc[y, col]) for y in (2020, 2021, 2022)])
+    P.table(["Metric", "2020", "2021", "2022"], rows, "Robustness of the facility findings across three years of traces.",
+            widths=[3.2, 0.8, 0.8, 0.8])
 
     # ------------------------------------------------------------------ 6 redundancy
     P.h("6 The Redundancy Dividend")
