@@ -25,8 +25,10 @@ Each loop iteration takes the top backlog item, checks it is new, implements it 
 
 ## Backlog (ranked by value ÷ cost)
 
-
-1. **Marginal vs average signals for siting (deferred).** F13 relies on average intensity; hydro-exporting regions (Quebec, Ontario) may have high marginal emissions. Deferred because no free marginal data covers the regions in question: WattTime needs registered access, and EIA-930-based regressions (Siler-Evans style) cover US balancing authorities only, not Quebec. Revisit if marginal data becomes available. Stated as a limitation in the paper.
+1. **Embodied-carbon uncertainty (Monte Carlo).** F8 rests on one or two EPDs per component and assumed server power draws. Propagate the full low/high ranges (and draw assumptions) through the payback analysis: does "build power, not servers" survive the uncertainty?
+2. **Marginal emissions for US regions (EIA-930).** EIA's Hourly Electric Grid Monitor publishes hourly generation by fuel for every US balancing authority (free bulk CSVs). Estimate marginal emission factors (Siler-Evans-style regression of Δemissions on Δgeneration) and re-test F13 (siting) and F15 (swing drives value) under marginal signals.
+3. **Joint spatial + temporal shifting under per-region caps.** Do the two flexibilities add up, or does spatial migration eat the temporal value? Use a small region set (EU or US) to keep the LP tractable.
+4. **Explorer tabs for the new findings.** Expose shadow price, redundancy and siting knobs in the web UI (engineering; no novelty check needed).
 
 ## Iteration notes
 
@@ -37,3 +39,4 @@ Each loop iteration takes the top backlog item, checks it is new, implements it 
 - **Iteration 5 (2026-11-09):** carbon-aware LLM batching (F14). Novelty check: Hoxha et al. (preprint, Oct 2025) jointly pick region and batch per prompt; I found no measurement-based estimate of the *time-varying* batching gain over the best static batching across many grids. The first full-LP implementation was too slow (70k variables x 1,100 solves), so it was replaced by an exact Lagrangian bisection, tested equal to the LP.
 - **Iteration 6 (2026-11-09):** what drives capacity value (F15). This answers the decarbonisation-trajectory item analytically: by the affine-invariance lemma, only absolute swing matters, so no synthetic renewable scenario is needed. Novelty: [1] uses CV (relative variability) as its indicator for temporal shifting; for capacity value the right indicator is absolute std, which beats CV by a wide margin (0.99 vs 0.48).
 - **Loop stopped (2026-11-09):** the remaining backlog item cannot be done with free data. Six iterations added F10-F15, 4 modules, 6 experiment scripts, 16 tests and 5 paper sections.
+- **Loop restarted (2026-11-09):** the user asked to keep going. Backlog refilled: EIA-930 offers free marginal-emission data for US balancing authorities, which reopens the deferred marginal-signals item for US regions.
