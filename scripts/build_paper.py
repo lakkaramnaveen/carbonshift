@@ -286,6 +286,7 @@ REFS = [
     "Dell Technologies. Product Carbon Footprint, PowerEdge R650 (2022); Life Cycle Assessment, PowerEdge R760.",
     "NVIDIA. HGX H100 Product Carbon Footprint Summary (cradle-to-gate), 2024.",
     "vladkens. macmon: sudoless performance monitoring CLI for Apple Silicon. https://github.com/vladkens/macmon.",
+    "V. Sakalkar, V. Kontorinis, D. Landhuis, S. Li, D. De Ronde, T. Blooming, A. Ramesh, J. Kennedy, C. Malone, et al. Data Center Power Oversubscription with a Medium Voltage Power Plane and Priority-Aware Capping. In Proc. ASPLOS, 2020. Traces: Google PowerData2019, https://github.com/google/cluster-data (CC-BY 4.0).",
 ]
 
 
@@ -441,6 +442,22 @@ def build(n: dict) -> None:
         f"(keeping {fv(.3, 1.2, 'kept_vs_uncapped_forecast_pct'):.0f}%). Capped schedules spread work over many hours instead of betting on the predicted "
         "minimum, so they lose a smaller share of their saving when forecasts are poor.")
     P.figure(FIG / "forecast_regret.png", "Share of the perfect-forecast saving lost versus forecast error, for two caps and no cap.", width=4.6)
+    ds = pd.read_csv(RES / "diurnal_summary.csv", index_col=0)["value"]
+    dsh = pd.read_csv(RES / "diurnal_shape_summary.csv", index_col=0)
+    dfm = dsh.loc["fleet median"]
+    dmd = dsh.loc[[i for i in dsh.index if i.startswith("most")][0]]
+    P.h("4.4 Real facilities: Google power traces", 2)
+    P.p(
+        "To ground the headroom axis in real data, we use Google's public PowerData2019 traces [28]: 5-minute power utilisation of 57 power domains "
+        f"in May 2019. The domains run at a median {ds['mean_util_median'] * 100:.0f}% of their power capacity "
+        f"({ds['mean_util_min'] * 100:.0f}-{ds['mean_util_max'] * 100:.0f}%), so real facilities have about +{ds['headroom_median_pct']:.0f}% headroom above mean load. "
+        f"At each domain's real headroom, carbon-aware shifting keeps a median {ds['kept_median_pct']:.0f}% of the ideal saving "
+        f"({ds['kept_min_pct']:.0f}-{ds['kept_max_pct']:.0f}%; 120 grids, φ = 0.5, 24 h slack). **The daily load shape barely matters.** We lay each "
+        "real hour-of-week shape over every grid at all 24 daily alignments, which bounds the effect without assuming a time zone. With the fleet-median shape, the "
+        f"worst alignment loses {dfm['worst_loss_rel_pct']:.1f}% of the saving; with the most diurnal domain ({ds['diurnal_amplitude_max_pct']:.0f}% daily "
+        f"swing), {dmd['worst_loss_rel_pct']:.1f}%. Averaged over alignments, the result equals the flat-load model used elsewhere. One caveat: utilisation "
+        "includes floor cooling, and the documented meaning of the trace's bad-data flag contradicts the data, so we treat the 24 rows flagged True as bad.")
+    P.figure(FIG / "diurnal_headroom.png", "Share of the ideal saving kept at each Google power domain's real headroom (pooled over 120 grids).", width=4.6)
     P.figure(FIG / "facility_zones.png", "Facility-level reduction versus headroom for four grids (φ = 0.5, 24 h slack); dotted lines mark the uncapped ideal.", width=4.6)
 
     # ------------------------------------------------------------------ 5 shadow price
@@ -592,8 +609,8 @@ def build(n: dict) -> None:
     P.bullets([
         "**Average vs. marginal intensity.** Like [1], we use average intensity; marginal signals can rank hours differently.",
         "**Forecasts.** The main results assume perfect forecasts and are upper bounds. Sec. 4.3 shows that synthetic AR(1) errors at CarbonCast-level MAPE cost 1-3% of emissions and leave the cap penalty nearly unchanged; real forecast errors may be structured differently.",
-        "**Flat inflexible load and fluid flexible work.** Real IT load is diurnal and long jobs are not infinitely divisible; both reduce savings below our bounds. "
-        "Migration and checkpoint overheads are ignored.",
+        "**Fluid flexible work.** Long jobs are not infinitely divisible, which lowers savings below our bounds; migration and checkpoint overheads are ignored. "
+        "Real diurnal load shapes change results by at most 6% (Sec. 4.4).",
         "**Embodied factors.** One or two EPDs per component; switchgear has no primary source; server factors rest on assumed average draws. Conclusions are "
         "robust because the gap between electrical plant and CPU servers is an order of magnitude.",
         "**Redundancy model.** Fleet-average failure parameters; partial-module failures and cooling redundancy are not modelled; shedding is assumed instantaneous, as in [3].",

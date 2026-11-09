@@ -84,6 +84,13 @@ The median zone needs **+34% headroom to keep half** its ideal 24 h saving, and 
 
 ![Forecast error vs cap](../figures/forecast_regret.png)
 
+**Real facilities: Google's power traces.** To ground the headroom axis in real data, I used Google's public PowerData2019 traces: 5-minute power utilisation of 57 power domains in May 2019 (CC-BY; Sakalkar et al., ASPLOS 2020).
+- **Utilisation:** domains run at a median **70%** of their power capacity (range 52-78%), so real facilities have about **+42% headroom** above mean load.
+- **Saving kept:** at each domain's real headroom, carbon shifting keeps a median **54%** of the ideal saving (44-75%; 120 grids, phi = 0.5, 24 h slack).
+- **The daily load shape barely matters.** I laid the real hour-of-week shape over every grid at all 24 daily alignments. With the fleet-median shape, the worst alignment (peak on the cleanest hours) loses 1.4% of the saving; with the most diurnal domain (21% daily swing), 5.9%. Averaged over alignments, the result equals the flat-load model, which validates the flat-load simplification used above.
+
+![Real headroom](../figures/diurnal_headroom.png)
+
 **Finding 3: green, variable grids gain the most from headroom.** South Australia gets 6% from just 5% headroom. India-West has a flat, coal-heavy trace and stays near 5% even with unlimited power.
 
 ![Selected zones](../figures/facility_zones.png)
@@ -194,7 +201,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 - Grid **average** carbon intensity is used, as in the paper. Marginal intensity can change conclusions.
 - Forecasts are perfect. The paper estimates about a 3% loss at CarbonCast-level errors.
-- Inflexible load is flat. Real IT load has a diurnal shape that uses up some headroom at the very hours where solar makes the grid cleanest.
+- Inflexible load is flat in the main model. Google's real load shapes change the result by at most 1.4% (fleet median) to 5.9% (most diurnal domain) of the saving, even in the worst alignment (Section 3).
 - Flexible work is modelled as fluid and pre-emptible; long, non-parallel jobs would retain less. Migration and checkpoint overheads are ignored.
 - Batteries are charged at grid average intensity, and degradation and the embodied carbon of extra headroom are not counted.
 - The embodied factors come from a small number of EPDs: one or two per component, and switchgear has none. Server factors rest on assumed average power draws. The redundancy model treats failures as fleet-average events and ignores partial-module failures and cooling redundancy.

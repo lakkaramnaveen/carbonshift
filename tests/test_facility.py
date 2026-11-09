@@ -101,3 +101,26 @@ def test_shadow_zero_when_cap_not_binding():
     ci = np.random.default_rng(12).uniform(50, 600, 500)
     r = capped_shift(ci, 0.2, 50.0, 24)
     assert r.annual_marginal_saving == pytest.approx(0.0, abs=1e-6)
+
+
+def test_varying_load_equals_brute_force():
+    """Time-varying load: inflexible (1-phi)L_t, arrivals phi*L_t, against a per-arrival LP."""
+    rng = np.random.default_rng(21)
+    L, phi, slack, cap = 60, 0.5, 5, 1.35
+    ci = rng.uniform(50, 600, L)
+    load = 1 + 0.25 * np.sin(2 * np.pi * np.arange(L) / 24)
+    load /= load.mean()
+    pairs = [(t, s) for t in range(L) for s in range(t, min(t + slack, L - 1) + 1)]
+    A_eq = np.zeros((L, len(pairs)))
+    A_ub = np.zeros((L, len(pairs)))
+    for k, (t, s) in enumerate(pairs):
+        A_eq[t, k] = 1
+        A_ub[s, k] = 1
+    res = linprog([ci[s] for _, s in pairs], A_ub=A_ub, b_ub=cap - (1 - phi) * load, A_eq=A_eq, b_eq=phi * load,
+                  bounds=(0, None), method="highs")
+    expect = (res.fun + ((1 - phi) * load * ci).sum()) / L
+    got = capped_shift(ci, phi, cap, slack, load=load)
+    assert got.optimised_g == pytest.approx(expect, rel=1e-7)
+    assert got.baseline_g == pytest.approx((ci * load).mean())
+    unc = capped_shift(ci, phi, np.inf, slack, load=load)
+    assert unc.served.sum() == pytest.approx(phi * load.sum())

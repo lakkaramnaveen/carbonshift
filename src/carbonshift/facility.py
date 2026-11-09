@@ -61,37 +61,46 @@ class CappedResult:
         return (self.baseline_g - self.optimised_g) / self.baseline_g * 100
 
 
-def _cumulative_bounds(L: int, phi: float, slack: int) -> tuple[np.ndarray, np.ndarray]:
+def _cumulative_bounds(arrivals: np.ndarray, slack: int) -> tuple[np.ndarray, np.ndarray]:
     """Bounds on cumulative flexible work served by the end of each hour."""
-    arrived = phi * np.arange(1, L + 1)                  # arrivals at start of hours 0..s
+    L = len(arrivals)
+    arrived = np.cumsum(arrivals)                        # arrivals at start of hours 0..s
     due = np.zeros(L)
     due[slack:] = arrived[: L - slack]                   # arrival t must be done by end of t+slack
     due[-1] = arrived[-1]                                # windows are clipped at the end of the year
     return due, arrived
 
 
-def capped_shift(ci: np.ndarray, phi: float, cap, slack: int) -> CappedResult:
+def capped_shift(ci: np.ndarray, phi: float, cap, slack: int, load: np.ndarray | None = None) -> CappedResult:
     """Minimum-carbon schedule of flexible work under a facility power cap.
 
     ``cap`` is a scalar or an hourly array (e.g. lower during maintenance or
     after an equipment failure), in units of mean load; ``np.inf`` = uncapped.
+    ``load`` is an optional hourly load shape with mean 1 (default flat). Each
+    hour, ``(1 - phi) * load`` is inflexible and ``phi * load`` arrives as
+    flexible work.
     """
     ci = np.asarray(ci, dtype=float)
     L = len(ci)
-    base = 1.0 - phi
+    shape = np.ones(L) if load is None else np.asarray(load, dtype=float)
+    if shape.shape != (L,):
+        raise ValueError("load must have one value per hour")
+    base = (1.0 - phi) * shape
+    arrivals = phi * shape
     cap_arr = np.broadcast_to(np.asarray(cap, dtype=float), (L,))
-    if np.any(cap_arr < 1.0 - 1e-12):
-        raise ValueError("cap must be >= mean load (1.0) in every hour or the load cannot be served")
-    baseline = float(ci.mean())  # run on arrival: load is 1 every hour
+    if np.any(cap_arr < shape - 1e-12):
+        raise ValueError("cap must be >= the load in every hour or the load cannot be served")
+    baseline = float((ci * shape).sum() / L)  # run on arrival
 
-    lo, hi = _cumulative_bounds(L, phi, slack)
+    lo, hi = _cumulative_bounds(arrivals, slack)
     shadow = None
 
     if np.all(np.isinf(cap_arr)):
         # Uncapped: each arrival is served at the cheapest hour in its window.
-        served = _uncapped_profile(ci, phi, slack)
+        served = _uncapped_profile(ci, arrivals, slack)
     else:
-        room = np.where(np.isinf(cap_arr), phi * (slack + 1), cap_arr - base)  # inf -> never binding
+        never_binding = arrivals.max() * (slack + 1)
+        room = np.where(np.isinf(cap_arr), never_binding, cap_arr - base)
         # Variables Y_0..Y_{L-1}; y_s = Y_s - Y_{s-1} in [0, room_s].
         # objective sum_s ci_s y_s = sum_s Y_s (ci_s - ci_{s+1}) with ci_L = 0
         c = ci - np.append(ci[1:], 0.0)
@@ -109,14 +118,14 @@ def capped_shift(ci: np.ndarray, phi: float, cap, slack: int) -> CappedResult:
     return CappedResult(baseline, optimised, served, shadow)
 
 
-def _uncapped_profile(ci: np.ndarray, phi: float, slack: int) -> np.ndarray:
+def _uncapped_profile(ci: np.ndarray, arrivals: np.ndarray, slack: int) -> np.ndarray:
     """Each hourly arrival goes to the cheapest hour in [t, min(t+slack, L-1)]."""
     from numpy.lib.stride_tricks import sliding_window_view
 
     L = len(ci)
     padded = np.concatenate([ci, np.full(slack, np.inf)])
     target = np.arange(L) + sliding_window_view(padded, slack + 1)[:L].argmin(axis=1)
-    return np.bincount(target, minlength=L) * phi
+    return np.bincount(target, weights=arrivals, minlength=L)
 
 
 # --------------------------------------------------------------------------- UPS battery
