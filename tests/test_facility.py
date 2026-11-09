@@ -124,3 +124,15 @@ def test_varying_load_equals_brute_force():
     assert got.baseline_g == pytest.approx((ci * load).mean())
     unc = capped_shift(ci, phi, np.inf, slack, load=load)
     assert unc.served.sum() == pytest.approx(phi * load.sum())
+
+
+def test_affine_invariance_of_savings_and_shadow_prices():
+    """ci' = a + b*ci leaves the schedule unchanged and scales savings and shadow prices by b."""
+    ci = np.random.default_rng(31).uniform(50, 600, 1500)
+    a, b = 120.0, 0.4
+    r1 = capped_shift(ci, 0.5, 1.25, 24)
+    r2 = capped_shift(a + b * ci, 0.5, 1.25, 24)
+    s1 = r1.baseline_g - r1.optimised_g
+    s2 = r2.baseline_g - r2.optimised_g
+    assert s2 == pytest.approx(b * s1, rel=1e-6)
+    assert r2.annual_marginal_saving == pytest.approx(b * r1.annual_marginal_saving, rel=1e-4)

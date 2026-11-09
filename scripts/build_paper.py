@@ -522,11 +522,25 @@ def build(n: dict) -> None:
     P.table(["Metric", "2020", "2021", "2022"], rows, "Robustness of the facility findings across three years of traces.",
             widths=[3.2, 0.8, 0.8, 0.8])
 
+    vs = pd.read_csv(RES / "variability_summary.csv", index_col=0)["value"]
+    P.h("5.4 What drives the value of capacity?", 2)
+    P.p(
+        "**Lemma (affine invariance).** In (1) the total work served is fixed and the feasible set does not depend on c. So for c' = a + b·c with b > 0 the "
+        "optimal schedule is unchanged, and savings and shadow prices scale exactly by b. The level of intensity is irrelevant; only its absolute swings "
+        "matter. The data confirm this. Across 120 zones and three years, the shadow price of capacity has Spearman correlation "
+        f"{vs['rho_daily_std_2022']:.3f} with the daily standard deviation of intensity, against {vs['rho_mean_ci_2022']:.2f} with its mean and "
+        f"{vs['rho_daily_cv_2022']:.2f} with the coefficient of variation, the relative-variability indicator used in [1]. **One public statistic predicts "
+        f"the carbon value of capacity:** value ≈ {vs['loglog_constant_k']:.2f}·σ^{vs['loglog_elasticity_shadow_vs_std']:.2f} kg CO2 per kW-year "
+        f"(R² = {vs['loglog_r2']:.2f}). The change in value from 2020 to 2022 follows the change in σ (ρ = {vs['rho_change_shadow_vs_change_std']:.2f}) and "
+        f"not the change in mean (ρ = {vs['rho_change_shadow_vs_change_mean']:.2f}); the median σ grew "
+        f"{(vs['median_daily_std_2022'] / vs['median_daily_std_2020'] - 1) * 100:.0f}%, which explains the rising value in Sec. 5.3. Decarbonisation therefore "
+        "raises the value of capacity only if it widens swings, as solar and wind do, and lowers it if it relies on steady sources.")
+    P.figure(FIG / "variability_drivers.png", "Value of one extra kW versus the daily standard deviation (left) and the mean (right) of grid carbon intensity, 2022.")
     st = pd.read_csv(RES / "siting_summary.csv").set_index("latency_ms")
     sr = pd.read_csv(RES / "siting_per_region.csv").set_index("zone")
     qc = sr.loc["CA-QC", "spatial_100ms_kg_per_kw_yr"]
     tmed = st.temporal_median.iloc[0]
-    P.h("5.4 Where should the next kilowatt go?", 2)
+    P.h("5.5 Where should the next kilowatt go?", 2)
     P.p(
         f"We take a cloud's real regions: the {len(sr)} GCP regions whose grids are in the dataset, with measured inter-region latency [19]. Each region "
         "hosts a facility at Google's real 70% utilisation (Sec. 4.4) with half its load flexible. An hourly migration LP moves flexible work to any region "

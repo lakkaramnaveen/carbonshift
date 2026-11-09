@@ -217,6 +217,18 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ![Siting](../figures/siting_spatial_vs_temporal.png)
 
+**What drives the value of capacity? Swing, not level.** In the capped LP, the total work served is fixed and the constraints don't depend on carbon intensity. So for any transform ci' = a + b·ci (b > 0) the optimal schedule is unchanged, and savings and shadow prices scale exactly by b (tested). The *level* of intensity is irrelevant; only its *absolute* swings matter. The data agree (120 zones, 2020-2022):
+
+| Statistic of the grid | Spearman with value of +1 kW (2022) |
+|---|---:|
+| Daily standard deviation, g/kWh (absolute swing) | **0.993** |
+| Mean intensity | 0.55 |
+| Daily coefficient of variation (relative swing, the paper's indicator) | 0.48 |
+
+**Finding 11: one public statistic predicts the carbon value of capacity.** Value ≈ 4.83 × (daily std)^1.12 kg CO₂ per kW-year (R² = 0.96). A grid with a 30 g/kWh daily swing gives about 219 kg/kW-yr, so an operator can estimate capacity value without solving an optimisation. It also explains the rising value in the robustness check: from 2020 to 2022 the change in value follows the change in swing (ρ = 0.97), not the change in mean (ρ = -0.01). The median swing grew 15%. **Decarbonisation raises the value of capacity only if it widens swings** (solar and wind); decarbonising with steady sources (nuclear, hydro) lowers it.
+
+![Variability drivers](../figures/variability_drivers.png)
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
