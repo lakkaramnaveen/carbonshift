@@ -609,6 +609,20 @@ def build(n: dict) -> None:
         "per joule within the same watts, a larger lever than temporal shifting (Sec. 4). Only work beyond the saturation point needs to compete for headroom. "
         "This complements carbon-aware inference designs such as EcoServe [13] and power oversubscription for LLM clusters [11].")
 
+    lb = pd.read_csv(RES / "llm_batching_summary.csv")
+    P.h("8.1 Does batch size need to follow the grid?", 2)
+    P.p(
+        "Each sequence's time per output token is B / throughput(B), so larger batches trade latency for energy. Under a yearly mean latency budget we "
+        "compare the best *static* batch mix with a *carbon-aware* hourly mix that uses small, fast batches in clean hours and large, efficient ones in "
+        "dirty hours. The hourly-mix LP has a single coupling constraint, so we solve it exactly by Lagrangian bisection: each hour picks the batch "
+        "minimising c_t·e(B) + λ·lat(B), and the optimum is a convex combination of the two schedules either side of λ* (tested equal to the full LP). "
+        f"Across 120 grids, static batching at the efficient size cuts CO2 by {lb.static_vs_batch1_saving_pct.min():.0f}-{lb.static_vs_batch1_saving_pct.max():.0f}% "
+        f"versus batch 1; carbon-aware timing adds only {lb.aware_vs_static_saving_pct_pooled.min():.1f}-{lb.aware_vs_static_saving_pct_pooled.max():.1f}% "
+        f"(pooled), up to {lb.aware_vs_static_saving_pct_max.max():.0f}% in very variable grids such as Uruguay. **Batch for efficiency first; following the "
+        "grid is second-order.** The measurements also show that batch sizes 8 and 16 are dominated by 32, which halves energy per token for nearly the same "
+        "per-token latency.")
+    P.figure(FIG / "llm_batching.png", "CO2 saving from static batching (vs batch 1) and the additional saving from carbon-aware time-varying batching.", width=4.8)
+
     # ------------------------------------------------------------------ 9 related work
     P.h("9 Related Work")
     P.p(

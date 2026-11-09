@@ -127,6 +127,22 @@ Throughput repeats agree within about 1%; chip power varies by up to 8% between 
 
 **Link to Extension 1.** On a power-capped facility, the first lever is to run inference at its efficient batch size, which delivers about 4× more tokens per joule within the same watts. Only work beyond the saturation point should be shifted in time, and that shifting is what draws on headroom. In a California-like grid (264 g/kWh mean), the 1.5B model emits about 7.3 g CO₂ per million tokens at batch 1 and 1.7 g at batch 32. That 4× gap exceeds anything temporal shifting achieved in Section 3.
 
+**Does batch size need to follow the grid?** Using the measured curves, each sequence's time per output token is B / throughput(B). Under a yearly mean latency budget, I compared the best *static* batch mix with a *carbon-aware* hourly mix (small, fast batches in clean hours; large, efficient ones in dirty hours). This is solved exactly by Lagrangian bisection (`src/carbonshift/llm_batching.py`; 120 grids, flat demand).
+
+| Model | Latency budget (ms/token) | Static batching vs batch 1 | Carbon-aware vs static (pooled) | Best grid |
+|---|---:|---:|---:|---|
+| Qwen2.5-1.5B | 6 | -41% | -1.7% | -12% (UY) |
+| Qwen2.5-1.5B | 10 | -57% | -2.2% | -17% (UY) |
+| Qwen2.5-1.5B | 15 | -64% | -4.7% | -23% (UY) |
+| Qwen2.5-1.5B | 20 | -71% | -4.8% | -16% (DK-BHM) |
+| Qwen2.5-7B | 25 | -43% | -1.6% | -9% (UY) |
+| Qwen2.5-7B | 50 | -56% | -3.6% | -24% (UY) |
+| Qwen2.5-7B | 75 | -64% | -4.8% | -18% (DK-BHM) |
+
+**Finding 7b: batch for efficiency first; following the grid is second-order.** The right static batch size saves 41-71%; carbon-aware timing adds 1.6-4.8%, up to 24% only in very variable grids. The curves also show that batch sizes 8 and 16 are dominated: batch 32 halves energy per token for nearly the same latency, so a scheduler should jump straight from small batches to 32.
+
+![Carbon-aware batching](../figures/llm_batching.png)
+
 ## 5. Extension 3: the carbon price of a kilowatt, and the redundancy dividend
 
 Section 3 showed that headroom limits carbon-aware shifting. Two questions follow: **what is one more kW of headroom worth, and is it worth building?**
