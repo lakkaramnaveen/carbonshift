@@ -97,7 +97,7 @@ AI inference is the fastest-growing flexible load, and batch size is its main ef
 | | 32 | 318 | 31.2 | **100** |
 | | 128 | 326 | 32.1 | 101 |
 
-Repeats agree within about 1%. Error bars are in the figure.
+Throughput repeats agree within about 1%; chip power varies by up to 8% between repeats (7B model, batch 1). Error bars are in the figure.
 
 ![LLM power vs batch](../figures/llm_power_batch.png)
 
@@ -147,8 +147,8 @@ Results at 65% design utilisation, mean over 123 zones, with half the load flexi
 | Capacity available to flexible work | Facility CO₂ reduction | Gap to ideal (8.8%) closed |
 |---|---:|---:|
 | Design capacity only | 5.5% | – |
-| + N+1 spare (N = 4) | 6.7% | 37% |
-| + 2N spare | 7.9% | 72% |
+| + N+1 spare (N = 4) | 6.7% | 36% |
+| + 2N spare | 7.9% | 73% |
 
 **Finding 8: redundancy is free carbon headroom, and outages barely matter.** Maintenance and failures cost less than 0.01 percentage points: the dividend survives outages almost intact, and it adds no embodied carbon. Scheduling maintenance in the hours with the lowest shadow price recovers 90–100% of that tiny loss. The effect is real but negligible, an honest negative result for carbon-aware maintenance scheduling.
 

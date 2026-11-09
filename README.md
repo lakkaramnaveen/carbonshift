@@ -5,7 +5,7 @@ This repository holds a clean-room **reproduction** of Sukprasert, Souza, Bashir
 1. **Power headroom.** All shifted work must fit under the facility's power rating, which is set by the utility service, transformers, UPS and generators. How much of the ideal carbon saving survives?
 2. **LLM inference energy against batch size, measured** on an Apple M4 Pro GPU. How many tokens per joule does each extra watt of headroom buy?
 
-Full write-up: **[docs/REPORT.md](docs/REPORT.md)**
+Full write-up: **[docs/REPORT.md](docs/REPORT.md)**. Research paper (Word): **[carbonshift_paper.docx](carbonshift_paper.docx)**, generated from the result CSVs by `scripts/build_paper.py`.
 
 ## Headline results
 
@@ -38,7 +38,7 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 - **Electrical plant:** repays its embodied carbon within a year in 94–98% of zones.
 - **CPU servers bought just to absorb shifted work:** pay back within a server's life in only 23% of zones.
 
-**Build power, not servers.** Tier redundancy (the N+1 or 2N spare) is free carbon headroom. Using it closes 37–72% of the gap to the ideal saving, and maintenance and failures cost under 0.01 percentage points.
+**Build power, not servers.** Tier redundancy (the N+1 or 2N spare) is free carbon headroom. Using it closes 36–73% of the gap to the ideal saving, and maintenance and failures cost under 0.01 percentage points.
 
 ![Facility headroom](figures/facility_retained.png)
 
