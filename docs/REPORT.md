@@ -71,6 +71,19 @@ The median zone needs **+34% headroom to keep half** its ideal 24 h saving, and 
 
 ![Share of the ideal saving retained](../figures/facility_retained.png)
 
+**Forecast error under a cap.** Real schedulers act on forecasts. I optimised schedules on noisy forecasts and charged them the true intensity. The forecasts used autocorrelated (AR(1), rho = 0.9) multiplicative errors calibrated to a target MAPE (`src/carbonshift/forecast.py`; 123 zones, 3 seeds).
+
+| Forecast MAPE | 5% | 10% | 15% | 30% |
+|---|---:|---:|---:|---:|
+| Saving lost, uncapped (% of saving) | 9% | 23% | 36% | 66% |
+| Saving lost, uncapped (% of emissions) | 0.8% | 1.9% | 2.9% | 5.3% |
+| Saving lost, +20% headroom (% of saving) | 10% | 23% | 33% | 50% |
+| +20% headroom, share of uncapped saving kept | 35% | 36% | 38% | 52% |
+
+**Finding 2b: at realistic forecast quality, the power cap and forecast error compound almost independently.** The capped facility keeps about the same share of the uncapped saving (35-38%) as with perfect forecasts (36%). Only with poor forecasts does the cap act as a hedge: capped schedules spread work over many hours instead of betting on the predicted minimum. The absolute cost of forecast error (0.8-2.9% of emissions at 5-15% MAPE) agrees with the paper's estimate of about 3%.
+
+![Forecast error vs cap](../figures/forecast_regret.png)
+
 **Finding 3: green, variable grids gain the most from headroom.** South Australia gets 6% from just 5% headroom. India-West has a flat, coal-heavy trace and stays near 5% even with unlimited power.
 
 ![Selected zones](../figures/facility_zones.png)

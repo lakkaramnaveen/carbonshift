@@ -348,7 +348,7 @@ def build(n: dict) -> None:
         "derived from transformer, UPS, generator and server declarations (Sec. 5).",
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
-        "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8).",
+        "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
         "**An open artifact:** tested code (44 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
@@ -426,6 +426,21 @@ def build(n: dict) -> None:
     P.table(["Headroom above mean load", "+10%", "+20%", "+50%", "+100%", "∞"], rows,
             "Global mean over 123 zones, φ = 0.5. Share kept = ratio of mean savings.", widths=[2.4, 0.7, 0.7, 0.7, 0.7, 0.7])
     P.figure(FIG / "facility_retained.png", "Share of the ideal (uncapped) carbon saving retained as power headroom grows, for three flexible shares and two slacks.")
+    fc = pd.read_csv(RES / "forecast_summary.csv")
+    fv = lambda m, c, col: float(fc[np.isclose(fc.mape, m) & ((fc.cap == c) if np.isfinite(c) else np.isinf(fc.cap))][col].iloc[0])
+    P.h("4.3 Forecast error under a cap", 2)
+    P.p(
+        "Schedulers act on forecasts. We optimise schedules on noisy forecasts and charge them the true intensity. The forecasts carry autocorrelated "
+        "multiplicative errors (AR(1), ρ = 0.9) calibrated to a target MAPE (123 zones, 3 seeds; the schedule stays feasible, so it can never beat perfect "
+        f"information). Uncapped, forecast error costs {fv(.05, np.inf, 'lost_pct_of_emissions'):.1f}-{fv(.15, np.inf, 'lost_pct_of_emissions'):.1f}% of "
+        "emissions at 5-15% MAPE, consistent with the estimate in [1] for CarbonCast-level errors [9]. As a share of the achievable saving the loss is "
+        f"large ({fv(.05, np.inf, 'lost_share_pooled_pct'):.0f}-{fv(.15, np.inf, 'lost_share_pooled_pct'):.0f}%), because hourly variation is small relative "
+        "to the error. **Caps and forecast error compound almost independently at realistic error levels:** with +20% headroom, the facility keeps "
+        f"{fv(.05, 1.2, 'kept_vs_uncapped_forecast_pct'):.0f}-{fv(.15, 1.2, 'kept_vs_uncapped_forecast_pct'):.0f}% of the equally mis-forecast uncapped "
+        f"saving, against {fv(.05, 1.2, 'kept_vs_uncapped_perfect_pct'):.0f}% with perfect forecasts. Only at 30% MAPE does the cap act as a hedge "
+        f"(keeping {fv(.3, 1.2, 'kept_vs_uncapped_forecast_pct'):.0f}%). Capped schedules spread work over many hours instead of betting on the predicted "
+        "minimum, so they lose a smaller share of their saving when forecasts are poor.")
+    P.figure(FIG / "forecast_regret.png", "Share of the perfect-forecast saving lost versus forecast error, for two caps and no cap.", width=4.6)
     P.figure(FIG / "facility_zones.png", "Facility-level reduction versus headroom for four grids (φ = 0.5, 24 h slack); dotted lines mark the uncapped ideal.", width=4.6)
 
     # ------------------------------------------------------------------ 5 shadow price
@@ -576,7 +591,7 @@ def build(n: dict) -> None:
     P.h("10 Discussion, Limitations and Threats to Validity")
     P.bullets([
         "**Average vs. marginal intensity.** Like [1], we use average intensity; marginal signals can rank hours differently.",
-        "**Perfect forecasts.** All results are upper bounds; [1] estimates about 3% loss at CarbonCast-level errors [9].",
+        "**Forecasts.** The main results assume perfect forecasts and are upper bounds. Sec. 4.3 shows that synthetic AR(1) errors at CarbonCast-level MAPE cost 1-3% of emissions and leave the cap penalty nearly unchanged; real forecast errors may be structured differently.",
         "**Flat inflexible load and fluid flexible work.** Real IT load is diurnal and long jobs are not infinitely divisible; both reduce savings below our bounds. "
         "Migration and checkpoint overheads are ignored.",
         "**Embodied factors.** One or two EPDs per component; switchgear has no primary source; server factors rest on assumed average draws. Conclusions are "

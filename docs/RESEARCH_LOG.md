@@ -17,15 +17,16 @@ Each loop iteration takes the top backlog item, checks it is new, implements it 
 | F8 | Build power, not servers: electrical headroom pays back in <1 yr in 94-98% of zones; CPU servers bought for shifting pay back within life in only 23% | `results/redundancy_payback_summary.csv`; EPD sources in `embodied.py` | verified (server factors rest on assumed draws) |
 | F9 | Redundancy dividend: N+1 / 2N spare closes 36-73% of the gap to the ideal; outages cost <0.01 pp; carbon-aware maintenance is negligible (negative result) | `results/redundancy_dividend_summary.csv` | verified |
 | F10 | Facility findings hold for 2020, 2021 and 2022: +20% headroom keeps 36-37% of the ideal; N+1 closes 35-36% and 2N 72-73% of the gap. Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years. The median shadow price **rose 17%** (198 -> 232 kg/kW-yr), so capacity became more valuable for carbon shifting | `results/robustness_years_*.csv`, `scripts/robustness_years.py` | verified (3 years only; trend is suggestive) |
+| F11 | Forecast error and power caps compound almost independently at realistic error. At 5-15% MAPE (CarbonCast range), +20% headroom keeps 35-38% of the equally mis-forecast uncapped saving (36% with perfect forecasts). Only at 30% MAPE does the cap hedge (keeps 52%), because capped schedules spread work over many hours. Uncapped forecast error costs 0.8-2.9% of emissions, consistent with [1]. Shifting almost never backfires | `results/forecast_*.csv`, `src/carbonshift/forecast.py`, `tests/test_forecast.py` | verified (synthetic AR(1) errors, rho = 0.9) |
 
 ## Backlog (ranked by value ÷ cost)
 
-1. **Forecast error under a power cap.** With a cap, mistakes are harder to undo. Does a CarbonCast-level error (MAPE 5-15%) hurt capped shifting more than uncapped shifting?
-2. **Diurnal IT load.** Real inflexible load peaks in the daytime, which uses up headroom exactly when solar makes the grid clean. Model a diurnal base load and measure the extra loss.
-3. **Where should the next MW go? Siting headroom across a cloud's regions.** Compare the shadow price of capacity per region, combining temporal value with spatial-destination value under latency limits.
-4. **Power-capped LLM serving.** Use the measured batch-energy curves with a power cap and carbon signal: batch big in clean hours, small in dirty hours, under a latency SLO.
-5. **Grid decarbonisation trajectory.** How do shadow prices change as zones add solar and wind? (Paper [1] shows relative benefits shrink; capacity value may behave differently.)
+1. **Diurnal IT load.** Real inflexible load peaks in the daytime, which uses up headroom exactly when solar makes the grid clean. Model a diurnal base load and measure the extra loss.
+2. **Where should the next MW go? Siting headroom across a cloud's regions.** Compare the shadow price of capacity per region, combining temporal value with spatial-destination value under latency limits.
+3. **Power-capped LLM serving.** Use the measured batch-energy curves with a power cap and carbon signal: batch big in clean hours, small in dirty hours, under a latency SLO.
+4. **Grid decarbonisation trajectory.** How do shadow prices change as zones add solar and wind? (Paper [1] shows relative benefits shrink; capacity value may behave differently.)
 
 ## Iteration notes
 
 - **Iteration 1 (2026-11-09):** multi-year robustness check (F10). No novelty search was needed, since this is a validity check. One definition was corrected (share kept = ratio of mean absolute savings, matching `facility_summary.csv`).
+- **Iteration 2 (2026-11-09):** forecast error under a power cap (F11). Novelty check: prior work quantifies forecast-error loss for uncapped shifting (arXiv:2508.14625; FM-CAC arXiv:2604.16448), but I found none for power-capped facilities. The headline metric was cross-checked against [1]'s 'about 3% of emissions' at CarbonCast-level error.
