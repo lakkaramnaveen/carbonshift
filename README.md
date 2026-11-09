@@ -34,6 +34,12 @@ Full write-up: **[docs/REPORT.md](docs/REPORT.md)**
 
 Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power. Past batch 32 the GPU saturates at 31–32 W.
 
+**Extension 3, the carbon price of a kilowatt.** The LP's dual variables give the CO₂ that one more kW of headroom saves each year. For the median zone at 20% headroom that is 228 kg/yr. Embodied-carbon factors derived from manufacturer EPDs show what headroom is worth building:
+- **Electrical plant:** repays its embodied carbon within a year in 94–98% of zones.
+- **CPU servers bought just to absorb shifted work:** pay back within a server's life in only 23% of zones.
+
+**Build power, not servers.** Tier redundancy (the N+1 or 2N spare) is free carbon headroom. Using it closes 37–72% of the gap to the ideal saving, and maintenance and failures cost under 0.01 percentage points.
+
 ![Facility headroom](figures/facility_retained.png)
 
 ## Interactive explorer
@@ -68,7 +74,9 @@ src/carbonshift/
   data.py       load traces + region groupings (preprocessing identical to the artifact)
   temporal.py   deferral / interruption upper bounds (vectorised; tested against the original loop)
   spatial.py    capacity-, latency-constrained migration; 1- vs inf-migration
-  facility.py   power-capped shifting LP (cumulative-flow form) + UPS/battery dispatch LP
+  facility.py   power-capped shifting LP (cumulative-flow form, hourly caps, shadow prices) + battery LP
+  embodied.py   EPD-derived embodied carbon per kW: transformers, UPS, generators, servers (cited)
+  redundancy.py N+1 / 2N topologies, maintenance + failure windows, carbon-aware maintenance
   power.py      sudo-free Apple Silicon power sampling via macmon
   plotting.py   shared figure style (colour-blind-validated palette)
   web/          secure FastAPI explorer API + dependency-free responsive UI (static/)
@@ -76,7 +84,8 @@ scripts/
   reproduce.py              all paper figures/claims -> results/repro_*.csv, figures/repro_*.png
   facility_experiments.py   headroom x flexibility x slack sweep, battery sweep
   llm_power_batch.py        GPU power / throughput / energy per token vs batch size (MLX)
-tests/          35 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+  redundancy_experiments.py shadow price of capacity, embodied payback, redundancy dividend
+tests/          44 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -87,9 +96,10 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 35 tests, ~5 s
+.venv/bin/python -m pytest                              # 44 tests, ~5 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
+.venv/bin/python scripts/redundancy_experiments.py      # ~2 min
 # GPU experiment (Apple Silicon only):
 brew install macmon && .venv/bin/pip install mlx mlx-lm
 .venv/bin/python scripts/llm_power_batch.py             # ~20 min; downloads two Qwen2.5 MLX models

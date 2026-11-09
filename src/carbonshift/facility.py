@@ -37,6 +37,18 @@ class CappedResult:
     baseline_g: float      # g CO2eq/kWh-of-mean-load, run-on-arrival
     optimised_g: float     # with carbon-aware shifting under the cap
     served: np.ndarray     # flexible kWh served each hour
+    # Shadow carbon price of capacity: grams CO2eq saved per extra unit of power
+    # (in units of mean load) made available for one hour, per hour. None if uncapped.
+    shadow: np.ndarray | None = None
+
+    @property
+    def annual_marginal_saving(self) -> float:
+        """g CO2eq saved per year per extra kW of capacity, per kW of mean load.
+
+        Equivalently: grams per year saved by one more kW of headroom at a
+        facility whose mean load is 1 kW (sum of hourly shadow prices).
+        """
+        return float(self.shadow.sum()) if self.shadow is not None else 0.0
 
     @property
     def saving_per_flex_kwh(self) -> float:
@@ -58,35 +70,43 @@ def _cumulative_bounds(L: int, phi: float, slack: int) -> tuple[np.ndarray, np.n
     return due, arrived
 
 
-def capped_shift(ci: np.ndarray, phi: float, cap: float, slack: int) -> CappedResult:
-    """Minimum-carbon schedule of flexible work under a facility power cap."""
+def capped_shift(ci: np.ndarray, phi: float, cap, slack: int) -> CappedResult:
+    """Minimum-carbon schedule of flexible work under a facility power cap.
+
+    ``cap`` is a scalar or an hourly array (e.g. lower during maintenance or
+    after an equipment failure), in units of mean load; ``np.inf`` = uncapped.
+    """
     ci = np.asarray(ci, dtype=float)
     L = len(ci)
     base = 1.0 - phi
-    if cap < 1.0 - 1e-12:
-        raise ValueError("cap must be >= mean load (1.0) or the load cannot be served")
+    cap_arr = np.broadcast_to(np.asarray(cap, dtype=float), (L,))
+    if np.any(cap_arr < 1.0 - 1e-12):
+        raise ValueError("cap must be >= mean load (1.0) in every hour or the load cannot be served")
     baseline = float(ci.mean())  # run on arrival: load is 1 every hour
 
     lo, hi = _cumulative_bounds(L, phi, slack)
-    room = np.inf if np.isinf(cap) else cap - base
+    shadow = None
 
-    if np.isinf(room):
+    if np.all(np.isinf(cap_arr)):
         # Uncapped: each arrival is served at the cheapest hour in its window.
         served = _uncapped_profile(ci, phi, slack)
     else:
-        # Variables Y_0..Y_{L-1}; y_s = Y_s - Y_{s-1} in [0, room].
+        room = np.where(np.isinf(cap_arr), phi * (slack + 1), cap_arr - base)  # inf -> never binding
+        # Variables Y_0..Y_{L-1}; y_s = Y_s - Y_{s-1} in [0, room_s].
         # objective sum_s ci_s y_s = sum_s Y_s (ci_s - ci_{s+1}) with ci_L = 0
         c = ci - np.append(ci[1:], 0.0)
         D = sparse.diags([np.ones(L), -np.ones(L - 1)], [0, -1], format="csr")  # (DY)_s = y_s
         A_ub = sparse.vstack([D, -D], format="csr")
-        b_ub = np.concatenate([np.full(L, room), np.zeros(L)])
+        b_ub = np.concatenate([room, np.zeros(L)])
         res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=np.column_stack([lo, hi]), method="highs")
         if res.status != 0:
             raise RuntimeError(f"LP failed: {res.message}")
         served = np.diff(res.x, prepend=0.0)
+        # d(objective)/d(room_s) <= 0; its negation is grams saved per unit of extra capacity-hour.
+        shadow = -np.asarray(res.ineqlin.marginals[:L])
 
     optimised = float((ci * (base + served)).sum() / L)
-    return CappedResult(baseline, optimised, served)
+    return CappedResult(baseline, optimised, served, shadow)
 
 
 def _uncapped_profile(ci: np.ndarray, phi: float, slack: int) -> np.ndarray:

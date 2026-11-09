@@ -55,6 +55,8 @@ Minimising Σₜ CIₜ · drawₜ is a transportation LP with one variable per (
 
 The sweep covers all 123 zones × φ ∈ {25, 50, 75%} × slack ∈ {24 h, 168 h} × 14 caps (10,332 LPs, 78 s on 14 cores).
 
+*Relation to prior work.* Google's Carbon-Intelligent Compute System already applies hourly capacity caps ("virtual capacity curves") to flexible work in production (Radovanović et al., 2021), and CarbonFlex studies cluster contention for low-carbon hours. This section complements them with a cross-grid map: how much of the ideal saving each level of headroom keeps, in each of 123 grid zones.
+
 **Finding 1: the ideal saving needs an absurd power spike.** With 50% flexible load and 24 h slack, the uncapped optimum crams a day's flexible work into the single cleanest hour. The median facility's peak draw is **13× its mean load**, and **85×** with 168 h slack. No facility is built that way.
 
 **Finding 2: realistic headroom keeps only part of the saving.** These are global means at φ = 0.5:
@@ -105,22 +107,75 @@ Repeats agree within about 1%. Error bars are in the figure.
 
 **Link to Extension 1.** On a power-capped facility, the first lever is to run inference at its efficient batch size, which delivers about 4× more tokens per joule within the same watts. Only work beyond the saturation point should be shifted in time, and that shifting is what draws on headroom. In a California-like grid (264 g/kWh mean), the 1.5B model emits about 7.3 g CO₂ per million tokens at batch 1 and 1.7 g at batch 32. That 4× gap exceeds anything temporal shifting achieved in Section 3.
 
-## 5. Takeaways
+## 5. Extension 3: the carbon price of a kilowatt, and the redundancy dividend
+
+Section 3 showed that headroom limits carbon-aware shifting. Two questions follow: **what is one more kW of headroom worth, and is it worth building?**
+
+**Shadow carbon price of capacity.** The dual variables of the capped LP's hourly power constraints give, for each hour, the grams of CO₂ saved by one more kW of capacity in that hour. They are verified against finite differences in `tests/test_facility.py`. Summed over a year, they give the **annual carbon value of one extra kW of headroom**. With half the load flexible and 24 h slack, the median zone saves:
+- **346 kg/yr** at 10% existing headroom;
+- **228 kg/yr** at 20%;
+- **112 kg/yr** at 50%;
+- **48 kg/yr** at 100%.
+
+The 90th-percentile zone saves 2.5–3× more. The value falls steeply as headroom grows: the first kilowatts are worth most.
+
+**What headroom costs to build.** I found no published per-kW embodied-carbon factors for data-centre electrical plant, so I derived them from manufacturer EPDs (A1–A3, `src/carbonshift/embodied.py`):
+- **Transformers:** 16.3 kg/kVA (Trafo Elettro 2,500 kVA cast resin) and 7.65 kg/kVA (ABB 16/20 MVA).
+- **UPS:** 17–74 kg/kW across three products (ABB MegaFlex, ABB DPA 250, Schneider Galaxy VX).
+- **Generator sets:** 53 kg/kVA (Cummins QSK95) and 61 kg/kVA (mtu 10V1600).
+- **Servers** (product carbon footprints): Dell R650 and R760 for CPU servers, and the NVIDIA HGX H100 baseboard for GPU servers.
+
+Sheddable, deferrable work doesn't need UPS or generator backup, because on a grid outage it is postponed, not lost. So the cheapest headroom for carbon shifting is **grid-only** capacity (transformer + switchgear, about 28 kg/kW). Fully backed capacity costs about 150 kg/kW.
+
+| Headroom build (median zone, 20% existing headroom, 24 h slack) | Embodied kg/kW | Payback | Zones that pay back within service life* |
+|---|---:|---:|---:|
+| Grid-only electrical (25-yr life) | 28 | **0.1 yr** | 98% |
+| Fully backed electrical (25-yr life) | 150 | 0.7 yr | 94% |
+| GPU servers (5-yr life) | ~470 | 2.1 yr | 79% |
+| CPU servers (5-yr life) | ~2,000 | 8.8 yr | **23%** |
+
+\*With savings shrinking 3%/yr as grids decarbonise.
+
+**Finding 7: build power, not servers.** Extra electrical capacity for carbon shifting repays its embodied carbon within months in almost every zone. Buying CPU servers just to absorb shifted work fails to pay back within a server's life in more than three-quarters of zones. Carbon-aware shifting is therefore worth doing with **idle compute that already exists**, and a power-constrained operator gains most from electrical headroom, not from more servers. The server factors rest on an assumed average draw (0.35 kW per CPU server; a full GPU server at twice the baseboard), and are flagged as assumptions in the code.
+
+![Shadow price of capacity](../figures/redundancy_marginal.png)
+
+**The redundancy dividend.** Tier-rated facilities already own idle electrical capacity: the spare module in N+1, or the whole second path in 2N. Microsoft's Flex (ISCA'21) showed this reserve can host sheddable work and be reclaimed within seconds when a failure occurs. I apply that idea to carbon: put deferrable work on the redundant capacity, and fall back to design capacity during maintenance (2 × 24 h per year) and random failures (0.5 per year, 8 h mean repair).
+
+Results at 65% design utilisation, mean over 123 zones, with half the load flexible and 24 h slack:
+
+| Capacity available to flexible work | Facility CO₂ reduction | Gap to ideal (8.8%) closed |
+|---|---:|---:|
+| Design capacity only | 5.5% | – |
+| + N+1 spare (N = 4) | 6.7% | 37% |
+| + 2N spare | 7.9% | 72% |
+
+**Finding 8: redundancy is free carbon headroom, and outages barely matter.** Maintenance and failures cost less than 0.01 percentage points: the dividend survives outages almost intact, and it adds no embodied carbon. Scheduling maintenance in the hours with the lowest shadow price recovers 90–100% of that tiny loss. The effect is real but negligible, an honest negative result for carbon-aware maintenance scheduling.
+
+![Redundancy dividend](../figures/redundancy_dividend.png)
+
+**Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
+1. derives the shadow carbon price of facility capacity across many grids;
+2. compares it with EPD-based embodied carbon of electrical plant and servers;
+3. uses tier redundancy as carbon-shifting headroom.
+
+## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
 2. Headroom is the real currency. Stranded power capacity is common because facilities are provisioned for peak and redundancy. Carbon-aware schedulers should treat the *remaining electrical headroom* as the scarce resource. The marginal gram saved per extra kW of headroom falls steeply after about 50%.
 3. The headroom curve sets operational savings against **embodied carbon and cost** of extra electrical plant. That trade-off connects to Ecovisor's idea of exposing power and energy to applications, and to CarbonScaler's elasticity.
 
-## 6. Limitations
+## 7. Limitations
 
 - Grid **average** carbon intensity is used, as in the paper. Marginal intensity can change conclusions.
 - Forecasts are perfect. The paper estimates about a 3% loss at CarbonCast-level errors.
 - Inflexible load is flat. Real IT load has a diurnal shape that uses up some headroom at the very hours where solar makes the grid cleanest.
 - Flexible work is modelled as fluid and pre-emptible; long, non-parallel jobs would retain less. Migration and checkpoint overheads are ignored.
 - Batteries are charged at grid average intensity, and degradation and the embodied carbon of extra headroom are not counted.
+- The embodied factors come from a small number of EPDs: one or two per component, and switchgear has none. Server factors rest on assumed average power draws. The redundancy model treats failures as fleet-average events and ignores partial-module failures and cooling redundancy.
 - The GPU numbers come from one laptop-class Apple chip running two small 4-bit models. They show the shape of the batch curve, not data-centre accelerator numbers. Background apps were running during the measurement, which is why whole-system power is reported only as an upper bound.
 
-## 7. Next steps
+## 8. Next steps
 
 1. Use a real facility load shape and per-cluster power caps, such as the Google power-trace data, in place of the flat base load.
 2. Add a joint spatial-temporal model in which each region has its own power cap, so that low-carbon regions saturate.
@@ -128,7 +183,7 @@ Repeats agree within about 1%. Error bars are in the figure.
 4. Model facility-aware control in an Ecovisor-style virtual energy system that exposes "power budget" alongside "carbon signal" to applications.
 5. Repeat the batch-size study on a data-centre GPU (an A100 or H100 with `nvidia-smi` power capping), adding a power-cap sweep. The question is whether "batch first, then shift" holds when the chip itself is capped.
 
-## 8. Interactive explorer
+## 9. Interactive explorer
 
 `carbonshift-web` serves a small app for experimenting with every model in this report: pick a grid region and slide the job length, slack, flexible share, power headroom, battery size or LLM batch, and the results update live. See the README for its security design.
 
@@ -136,8 +191,9 @@ Repeats agree within about 1%. Error bars are in the figure.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 35 tests
+.venv/bin/python -m pytest              # 44 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`
+.venv/bin/python scripts/redundancy_experiments.py # ~2 min; shadow prices, embodied payback, redundancy dividend
 ```

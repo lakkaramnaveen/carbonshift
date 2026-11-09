@@ -63,3 +63,41 @@ def test_battery_bounds():
     assert 0 < small.reduction_pct < large.reduction_pct
     assert lossy.reduction_pct < large.reduction_pct
     assert battery_shift(ci, energy_h=1 / 6, reserve_frac=1.0).reduction_pct == 0
+
+
+def brute_force_varying(ci, phi, caps, slack):
+    L = len(ci)
+    pairs = [(t, s) for t in range(L) for s in range(t, min(t + slack, L - 1) + 1)]
+    c = np.array([ci[s] for _, s in pairs])
+    A_eq = np.zeros((L, len(pairs)))
+    A_ub = np.zeros((L, len(pairs)))
+    for k, (t, s) in enumerate(pairs):
+        A_eq[t, k] = 1
+        A_ub[s, k] = 1
+    res = linprog(c, A_ub=A_ub, b_ub=caps - (1 - phi), A_eq=A_eq, b_eq=np.full(L, phi), bounds=(0, None), method="highs")
+    return (res.fun + (1 - phi) * ci.sum()) / L
+
+
+def test_time_varying_cap_equals_brute_force():
+    rng = np.random.default_rng(7)
+    ci = rng.uniform(50, 600, 72)
+    caps = np.where(rng.random(72) < 0.3, 1.0, 1.6)  # outage-like hours at the bare minimum
+    assert capped_shift(ci, 0.5, caps, 6).optimised_g == pytest.approx(brute_force_varying(ci, 0.5, caps, 6), rel=1e-7)
+
+
+def test_shadow_price_matches_finite_difference():
+    """Uniformly raising the cap by eps lowers emissions by eps * sum(shadow) (per-hour mean units)."""
+    ci = np.random.default_rng(11).uniform(50, 600, 2000)
+    eps = 1e-4
+    a = capped_shift(ci, 0.5, 1.2, 24)
+    b = capped_shift(ci, 0.5, 1.2 + eps, 24)
+    L = len(ci)
+    fd = (a.optimised_g - b.optimised_g) * L / eps
+    assert a.annual_marginal_saving == pytest.approx(fd, rel=2e-2)
+    assert np.all(a.shadow >= -1e-9)
+
+
+def test_shadow_zero_when_cap_not_binding():
+    ci = np.random.default_rng(12).uniform(50, 600, 500)
+    r = capped_shift(ci, 0.2, 50.0, 24)
+    assert r.annual_marginal_saving == pytest.approx(0.0, abs=1e-6)
