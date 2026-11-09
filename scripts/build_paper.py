@@ -287,6 +287,9 @@ REFS = [
     "NVIDIA. HGX H100 Product Carbon Footprint Summary (cradle-to-gate), 2024.",
     "vladkens. macmon: sudoless performance monitoring CLI for Apple Silicon. https://github.com/vladkens/macmon.",
     "L. Wu, W. A. Hanafy, A. Souza, K. Nguyen, J. Harkes, D. Irwin, M. Satyanarayanan, P. Shenoy. CarbonEdge: Leveraging Mesoscale Spatial Carbon-Intensity Variations for Low Carbon Edge Computing. In Proc. HPDC, 2025. arXiv:2502.14076.",
+    "T. Sukprasert, N. Bashir, A. Souza, D. Irwin, P. Shenoy. On the Implications of Choosing Average versus Marginal Carbon Intensity Signals on Carbon-aware Optimizations. In Proc. ACM e-Energy, 2024.",
+    "K. Siler-Evans, I. L. Azevedo, M. G. Morgan. Marginal Emissions Factors for the U.S. Electricity System. Environmental Science & Technology 46(9), 2012.",
+    "U.S. Energy Information Administration. Hourly Electric Grid Monitor (Form EIA-930), six-month balance files, 2022. https://www.eia.gov/electricity/gridmonitor/.",
     "V. Sakalkar, V. Kontorinis, D. Landhuis, S. Li, D. De Ronde, T. Blooming, A. Ramesh, J. Kennedy, C. Malone, et al. Data Center Power Oversubscription with a Medium Voltage Power Plane and Priority-Aware Capping. In Proc. ASPLOS, 2020. Traces: Google PowerData2019, https://github.com/google/cluster-data (CC-BY 4.0).",
 ]
 
@@ -449,7 +452,7 @@ def build(n: dict) -> None:
     dmd = dsh.loc[[i for i in dsh.index if i.startswith("most")][0]]
     P.h("4.4 Real facilities: Google power traces", 2)
     P.p(
-        "To ground the headroom axis in real data, we use Google's public PowerData2019 traces [29]: 5-minute power utilisation of 57 power domains "
+        "To ground the headroom axis in real data, we use Google's public PowerData2019 traces [32]: 5-minute power utilisation of 57 power domains "
         f"in May 2019. The domains run at a median {ds['mean_util_median'] * 100:.0f}% of their power capacity "
         f"({ds['mean_util_min'] * 100:.0f}-{ds['mean_util_max'] * 100:.0f}%), so real facilities have about +{ds['headroom_median_pct']:.0f}% headroom above mean load. "
         f"At each domain's real headroom, carbon-aware shifting keeps a median {ds['kept_median_pct']:.0f}% of the ideal saving "
@@ -566,6 +569,21 @@ def build(n: dict) -> None:
         "may displace exports, so marginal emissions there can far exceed the average.")
     P.figure(FIG / "siting_spatial_vs_temporal.png", "Spatial (migration, 100 ms) versus temporal value of one extra kW in 32 GCP regions.", width=4.8)
 
+    ms = pd.read_csv(RES / "marginal_summary.csv", index_col=0)["value"]
+    P.h("5.6 Average versus marginal signals", 2)
+    P.p(
+        "Average intensity is what the GHG Protocol reports, but shifting load changes *marginal* emissions, and the two signals can disagree [29]. We "
+        f"build both for {int(ms['bas'])} US balancing authorities from EIA-930 hourly generation by fuel [31]. The average uses generation-weighted lifecycle "
+        f"factors and matches Electricity Maps at r = {ms['validation_mean_r']:.2f} (annual means) and {ms['validation_hourly_r_median']:.2f} (hourly). The "
+        "marginal signal is a Siler-Evans regression [30] of hourly emission changes on generation changes, per season and hour of day. Three results follow. "
+        f"(i) **The swing law survives:** the marginal shadow price tracks the marginal signal's daily standard deviation (ρ = {ms['rho_shadow_marg_vs_std_marg']:.2f}) "
+        f"and not its mean (ρ = {ms['rho_shadow_marg_vs_mean_marg']:.2f}). (ii) **The signal choice matters more than the cap:** a capped schedule optimised on "
+        f"the average signal captures only {ms['share_of_marg_optimum_pooled'] * 100:.0f}% of the marginal-optimal saving (median "
+        f"{ms['share_of_marg_optimum_median'] * 100:.1f}%), and it *raises* marginal emissions in {ms['bas_where_avg_schedule_raises_marginal_pct']:.0f}% of BAs. "
+        f"(iii) **Siting rankings partly survive** (ρ = {ms['rho_siting_rank_mean_avg_vs_mean_marg']:.2f}), with reversals in BAs whose marginal unit is fossil "
+        "despite a moderate average. The marginal factors are coarse (season × hour bins), so part of their larger swing is estimation noise.")
+    P.figure(FIG / "marginal_signals.png", "Under marginal signals (EIA-930, 2022): capacity value versus signal swing (left); average versus marginal mean intensity per BA (right).")
+
     # ------------------------------------------------------------------ 6 redundancy
     P.h("6 The Redundancy Dividend")
     P.p(
@@ -666,7 +684,7 @@ def build(n: dict) -> None:
     # ------------------------------------------------------------------ 10 discussion
     P.h("10 Discussion, Limitations and Threats to Validity")
     P.bullets([
-        "**Average vs. marginal intensity.** Like [1], we use average intensity; marginal signals can rank hours differently.",
+        "**Average vs. marginal intensity.** The main results use average intensity, like [1]. Sec. 5.6 shows that the structural findings survive a marginal signal for US BAs, but average-optimised schedules capture little marginal reduction; marginal estimates outside the US were not available.",
         "**Forecasts.** The main results assume perfect forecasts and are upper bounds. Sec. 4.3 shows that synthetic AR(1) errors at CarbonCast-level MAPE cost 1-3% of emissions and leave the cap penalty nearly unchanged; real forecast errors may be structured differently.",
         "**Fluid flexible work.** Long jobs are not infinitely divisible, which lowers savings below our bounds; migration and checkpoint overheads are ignored. "
         "Real diurnal load shapes change results by at most 6% (Sec. 4.4).",

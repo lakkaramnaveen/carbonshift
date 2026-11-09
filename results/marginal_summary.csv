@@ -1,0 +1,14 @@
+,value
+bas,48.0
+validation_zones,49.0
+validation_mean_r,0.9104306514227659
+validation_hourly_r_median,0.8835082436499881
+rho_shadow_marg_vs_std_marg,0.9617889709075119
+rho_shadow_marg_vs_mean_marg,0.15599218410768562
+rho_shadow_avg_vs_shadow_marg,0.5125922709509335
+median_shadow_avg_kg,131.66819614960866
+median_shadow_marg_kg,317.6539429404779
+share_of_marg_optimum_pooled,0.0736374783331994
+share_of_marg_optimum_median,0.015293230696992366
+bas_where_avg_schedule_raises_marginal_pct,43.75
+rho_siting_rank_mean_avg_vs_mean_marg,0.7792010421189752

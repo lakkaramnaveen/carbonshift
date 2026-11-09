@@ -231,6 +231,18 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ![Variability drivers](../figures/variability_drivers.png)
 
+**Do the findings survive a marginal signal?** Average intensity, used throughout, is what the GHG Protocol reports, but shifting load changes *marginal* emissions. I built both signals for 48 US balancing authorities from EIA-930 hourly generation by fuel (`src/carbonshift/eia930.py`). The average is generation-weighted lifecycle factors; it matches Electricity Maps at r = 0.91 (annual means) and 0.88 (hourly). The marginal signal is a Siler-Evans regression of hourly emission changes on generation changes, per season and hour of day.
+
+| Question | Result |
+|---|---|
+| Swing law (value tracks daily std) under marginal signals | ρ = 0.96 (vs mean: 0.16), **holds** |
+| Average-optimised capped schedule, scored in marginal emissions | gets 7% of the marginal-optimal saving (median 1.5%); **raises** marginal emissions in 44% of BAs |
+| Siting rank by mean intensity, average vs marginal | ρ = 0.78; reversals such as SRP and DUK |
+
+**Finding 12: the signal choice matters more than the cap.** The structural results (the swing law; clean grids as destinations) survive, but a scheduler tuned to average intensity achieves almost none of the marginal reduction and often increases it. This extends Sukprasert et al. (2024) to power-capped facilities. The marginal factors here are coarse (season × hour bins), so part of their larger swing is estimation noise.
+
+![Marginal signals](../figures/marginal_signals.png)
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
