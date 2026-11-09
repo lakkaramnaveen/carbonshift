@@ -494,6 +494,15 @@ def build(n: dict) -> None:
     P.table(["Headroom build", "Embodied kg/kW", "Life (y)", "Median payback (y)", "Zones repaid in life*"], rows,
             "Carbon payback of building headroom for shifting at 20% existing headroom, φ = 0.5, 24 h slack. *Savings decline 3%/yr with grid decarbonisation.",
             widths=[1.8, 1.0, 0.7, 1.2, 1.3])
+    eu = pd.read_csv(RES / "embodied_uncertainty_summary.csv")
+    eg = lambda cap, bld, col: float(eu[(eu.cap == cap) & (eu.build == bld)][col].iloc[0])
+    P.p(
+        "**Uncertainty.** We propagate the embodied-carbon uncertainty with a 5,000-draw Monte Carlo. Each component factor is drawn from its EPD range, "
+        "CPU-server draw from 0.25-0.5 kW, the GPU full-server multiplier from 1.5-3x, lifetimes from 20-30 y (electrical) and 4-6 y (servers), and a "
+        f"decline in savings from 0-5%/y. The build ordering held in {eg(1.2, 'ordering cpu<gpu<=backed<=grid holds', 'prob_majority_pay_back') * 100:.0f}% "
+        f"of draws. At +20% headroom, electrical builds repay in {eg(1.2, 'backed', 'p05_pct'):.0f}-{eg(1.2, 'grid_only', 'p95_pct'):.0f}% of zones in every "
+        f"draw, while CPU servers repay in a median {eg(1.2, 'cpu_servers', 'median_pct'):.0f}% (90% interval {eg(1.2, 'cpu_servers', 'p05_pct'):.0f}-"
+        f"{eg(1.2, 'cpu_servers', 'p95_pct'):.0f}%) and reach a majority of zones in only {eg(1.2, 'cpu_servers', 'prob_majority_pay_back') * 100:.0f}% of draws.")
     P.figure(FIG / "redundancy_marginal.png",
              "Shadow carbon price of facility capacity (median and interquartile range over zones) with embodied-carbon breakeven levels per build option.", width=5.0)
     P.p(

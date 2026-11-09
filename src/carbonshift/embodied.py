@@ -95,3 +95,35 @@ def payback_years(embodied_kg_per_kw: float, annual_saving_g_per_kw: float, decl
             return year - 1 + (need - acc) / s
         acc += s
     return float("inf")
+
+
+# --------------------------------------------------------------------------- uncertainty
+def sample_per_kw(build: str, rng, n: int):
+    """Draw n embodied factors (kg CO2eq per kW) reflecting source and assumption uncertainty.
+
+    Electrical components: triangular(low, central, high) per component, summed.
+    CPU servers: manufacturing 420-1,085 kg per server (Dell R760 / R650 PCFs) divided
+    by an average draw of 0.25-0.50 kW. GPU servers: HGX H100 baseboard 1,312 kg /
+    5.6 kW, times a full-server multiplier of 1.5-3.0.
+    """
+    import numpy as np
+
+    if build == "cpu_servers":
+        return rng.uniform(420, 1085, n) / rng.uniform(0.25, 0.50, n)
+    if build == "gpu_servers":
+        return 1312 / 5.6 * rng.uniform(1.5, 3.0, n)
+    total = np.zeros(n)
+    for part in BUILDS[build]:
+        lo, mid, hi = FACTORS[part]
+        total += lo if hi == lo else rng.triangular(lo, mid, hi, n)
+    return total
+
+
+def pays_back_within(embodied_kg, annual_g, life_years, decline):
+    """Vectorised: does cumulative saving over ``life_years`` (shrinking geometrically) cover embodied carbon?"""
+    import numpy as np
+
+    annual_kg = np.asarray(annual_g, dtype=float) / 1000.0
+    d = np.asarray(decline, dtype=float)
+    factor = np.where(d > 1e-12, (1 - (1 - d) ** life_years) / np.maximum(d, 1e-12), life_years)
+    return annual_kg * factor >= embodied_kg

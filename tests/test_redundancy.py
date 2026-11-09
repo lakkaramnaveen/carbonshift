@@ -53,3 +53,19 @@ def test_failure_windows_rate():
     rng = np.random.default_rng(1)
     counts = [len(failure_windows(rng, 8760, OutagePlan(failure_rate_per_year=2.0))) for _ in range(400)]
     assert np.mean(counts) == pytest.approx(2.0, rel=0.15)
+
+
+def test_vectorised_payback_matches_scalar():
+    from carbonshift.embodied import pays_back_within
+    for emb, g, life, d in ((100, 50_000, 5, 0.0), (100, 30_000, 3, 0.0), (100, 50_000, 25, 0.6), (20, 10_000, 5, 0.03)):
+        assert bool(pays_back_within(emb, g, life, d)) == (payback_years(emb, g, d) <= life)
+
+
+def test_samples_within_ranges():
+    from carbonshift.embodied import sample_per_kw
+    rng = np.random.default_rng(0)
+    for b in BUILDS:
+        s = sample_per_kw(b, rng, 5000)
+        assert s.min() > 0
+    cpu = sample_per_kw("cpu_servers", rng, 5000)
+    assert 420 / 0.5 <= cpu.min() and cpu.max() <= 1085 / 0.25
