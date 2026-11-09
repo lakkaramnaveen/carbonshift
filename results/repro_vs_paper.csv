@@ -1,0 +1,31 @@
+section,claim,paper,ours,unit,abs_diff
+§3.1.3,Global average carbon intensity,368.39,368.38,g/kWh,0.01
+§4.1,Share of zones with mean CI > 400,46.0,45.53,%,0.47
+§4.1,Max/min ratio of zone mean CI,40.0,59.73,x,19.73
+§1,Share of zones with daily CV < 0.1 ('>70%'),70.0,49.59,%,20.41
+§5.1.1,Greenest zone mean CI (Sweden),16.0,15.9,g/kWh,0.1
+Fig 7a,"Deferral saving, 1 h job, 1-year slack",154.0,153.94,g,0.06
+Fig 7a,"Deferral saving, 168 h job, 1-year slack",70.0,69.89,g,0.11
+Fig 7b,"Deferral saving, 1 h job, 24 h slack",57.0,57.38,g,0.38
+Fig 7b,"Deferral saving, 168 h job, 24 h slack",3.0,2.89,g,0.11
+Fig 8a,"Extra saving from interruption, 168 h job, 1-year slack",43.0,42.47,g,0.53
+Fig 8b,"Extra saving from interruption, 24 h job, 24 h slack (peak)",18.4,18.36,g,0.04
+Fig 9a,"Deferral, 168 h job, 1-year slack (% of baseline)",19.0,18.94,%,0.06
+Fig 9a,"Interruption adds, 168 h job, 1-year slack",11.0,11.56,%,0.56
+Fig 9b,"Defer+interrupt, 168 h job, 24 h slack",3.0,2.71,%,0.29
+Fig 10a,"Equal job mix, 1-year slack, global",135.0,134.87,g,0.13
+Fig 10b,"Azure job mix, 1-year slack",100.0,100.61,g,0.61
+Fig 10c,"Google job mix, 1-year slack",112.0,111.91,g,0.09
+Fig 10d,"Equal mix, 24 h slack",31.0,32.32,g,1.32
+Fig 10d,"Equal mix, 1-year slack",127.0,134.87,g,7.87
+Fig 5a,"Global, infinite capacity",352.0,352.48,g,0.48
+Fig 5a,"Europe, infinite capacity",281.0,281.24,g,0.24
+Fig 5a,"Asia, infinite capacity",556.0,555.84,g,0.16
+Fig 5b,"Global, 50% idle capacity",190.0,189.72,g,0.28
+Fig 5b,"Asia, 50% idle capacity (artifact metric)",556.0,555.84,g,0.16
+Fig 6b,Max extra from inf-migration over 1-migration (<10),10.0,7.88,g,2.12
+Fig 5c,Global reduction at 50% idle,51.5,51.5,%,0.0
+Fig 5c,Global reduction at 99% idle,95.68,95.68,%,0.0
+Fig 6a,"250 ms SLO, infinite capacity",92.5,92.5,%,0.0
+Fig 6a,"250 ms SLO, 50% utilisation",45.7,45.5,%,0.2
+Fig 6a,"50 ms SLO, 50% utilisation",31.0,31.11,%,0.11

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tune carbon-aware scheduling, facility power headroom, UPS batteries and LLM batch size, and see the carbon impact.">
+  <title>Carbon Shift Explorer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div>
+        <h1>Carbon Shift Explorer</h1>
+        <p>How much carbon can a data centre save by moving work to cleaner hours? Turn the knobs and find out. Uses real hourly grid data for 123 regions (2022), the method of Sukprasert et al. (EuroSys 2024), and the facility power limits they leave out.</p>
+      </div>
+      <button class="theme-btn" id="theme" type="button" aria-label="Toggle colour theme">Theme</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Experiments">
+    <button role="tab" id="tab-temporal" aria-controls="p-temporal" aria-selected="true">Grid shifting</button>
+    <button role="tab" id="tab-facility" aria-controls="p-facility" aria-selected="false">Facility headroom</button>
+    <button role="tab" id="tab-battery" aria-controls="p-battery" aria-selected="false">UPS battery</button>
+    <button role="tab" id="tab-llm" aria-controls="p-llm" aria-selected="false">LLM on GPU</button>
+  </nav>
+
+  <!-- Temporal -->
+  <section class="panel" id="p-temporal" role="tabpanel" aria-labelledby="tab-temporal">
+    <div class="card controls">
+      <h2>One job, perfect forecast</h2>
+      <p class="hint">A job arrives every hour of the year. It may wait (defer) and pause (interrupt) to use the cleanest hours within its slack.</p>
+      <div class="field"><label for="t-zone">Grid region</label><select id="t-zone" class="zone"></select></div>
+      <div class="field"><label for="t-job">Job length <output id="t-job-o"></output></label>
+        <input type="range" id="t-job" min="0" max="8" step="1" value="5"></div>
+      <div class="field"><label for="t-slack">Slack (how long it may wait) <output id="t-slack-o"></output></label>
+        <input type="range" id="t-slack" min="0" max="9" step="1" value="3"></div>
+    </div>
+    <div class="results" id="t-out">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Run immediately</div><div class="value" id="t-k-base">–</div><div class="sub">g·CO₂ per job-hour</div></div>
+        <div class="kpi"><div class="label">Defer only</div><div class="value good" id="t-k-defer">–</div><div class="sub" id="t-k-defer-s">saving</div></div>
+        <div class="kpi"><div class="label">Defer + interrupt</div><div class="value good" id="t-k-comb">–</div><div class="sub" id="t-k-comb-s">saving</div></div>
+      </div>
+      <div class="card">
+        <h2>Where each arrival's saving lands</h2>
+        <p class="hint">Number of arrival hours (out of the year) by the saving that defer + interrupt achieves.</p>
+        <div class="chart" id="t-hist"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Facility -->
+  <section class="panel" id="p-facility" role="tabpanel" aria-labelledby="tab-facility" hidden>
+    <div class="card controls">
+      <h2>Shifting under a power cap</h2>
+      <p class="hint">Flexible work must fit under the facility's power limit (utility feed, transformers, UPS). Power is in units of the average load.</p>
+      <div class="field"><label for="f-zone">Grid region</label><select id="f-zone" class="zone"></select></div>
+      <div class="field"><label for="f-flex">Flexible share of load <output id="f-flex-o"></output></label>
+        <input type="range" id="f-flex" min="5" max="95" step="5" value="50"></div>
+      <div class="field"><label for="f-slack">Deadline slack <output id="f-slack-o"></output></label>
+        <input type="range" id="f-slack" min="0" max="6" step="1" value="3"></div>
+      <div class="field"><label for="f-head">Power headroom above average <output id="f-head-o"></output></label>
+        <input type="range" id="f-head" min="0" max="300" step="5" value="20">
+        <div class="ticks"><span>none</span><span>+100%</span><span>+200%</span><span>+300%</span></div></div>
+      <div class="field"><label for="f-week">Week shown <output id="f-week-o"></output></label>
+        <input type="range" id="f-week" min="0" max="51" step="1" value="26"></div>
+    </div>
+    <div class="results" id="f-out">
+      <div class="kpis">
+        <div class="kpi"><div class="label">CO₂ reduction (with cap)</div><div class="value good" id="f-k-red">–</div><div class="sub" id="f-k-red-s"></div></div>
+        <div class="kpi"><div class="label">Share of ideal kept</div><div class="value" id="f-k-ret">–</div><div class="sub" id="f-k-ret-s"></div></div>
+        <div class="kpi"><div class="label">Peak needed for ideal</div><div class="value" id="f-k-peak">–</div><div class="sub">× average load</div></div>
+      </div>
+      <div class="card">
+        <h2>Saving vs power headroom</h2>
+        <div class="legend"><span class="l1">CO₂ reduction (%)</span><span class="lr">ideal, no cap</span></div>
+        <div class="chart" id="f-curve"></div>
+      </div>
+      <div class="card">
+        <h2>One week: grid carbon and the schedule</h2>
+        <div class="legend"><span class="l2">Grid carbon intensity (g/kWh)</span></div>
+        <div class="chart" id="f-ci"></div>
+        <div class="legend"><span class="lb">Inflexible load</span><span class="l1">Flexible work scheduled</span><span class="lr">Power cap</span></div>
+        <div class="chart" id="f-draw"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Battery -->
+  <section class="panel" id="p-battery" role="tabpanel" aria-labelledby="tab-battery" hidden>
+    <div class="card controls">
+      <h2>Can the UPS battery shift carbon?</h2>
+      <p class="hint">Charge in clean hours, discharge in dirty ones, behind a constant load. Typical UPS ride-through is 5–15 minutes.</p>
+      <div class="field"><label for="b-zone">Grid region</label><select id="b-zone" class="zone"></select></div>
+      <div class="field"><label for="b-min">Battery energy <output id="b-min-o"></output></label>
+        <input type="range" id="b-min" min="5" max="480" step="5" value="10"></div>
+      <div class="field"><label for="b-res">Held back as ride-through reserve <output id="b-res-o"></output></label>
+        <input type="range" id="b-res" min="0" max="90" step="5" value="0"></div>
+      <div class="field"><label for="b-eff">Round-trip efficiency <output id="b-eff-o"></output></label>
+        <input type="range" id="b-eff" min="50" max="100" step="1" value="90"></div>
+    </div>
+    <div class="results">
+      <div class="kpis">
+        <div class="kpi"><div class="label">CO₂ reduction</div><div class="value good" id="b-k-red">–</div><div class="sub">of the facility's emissions</div></div>
+        <div class="kpi"><div class="label">Grid intensity seen</div><div class="value" id="b-k-ci">–</div><div class="sub" id="b-k-ci-s"></div></div>
+        <div class="kpi"><div class="label">Full cycles per year</div><div class="value" id="b-k-cyc">–</div><div class="sub">battery wear</div></div>
+      </div>
+      <div class="card">
+        <h2>Why it is small</h2>
+        <p class="note">A 10-minute battery holds about 0.7% of a day's energy. Even cycled every day it can only move that sliver into cleaner hours, and round-trip losses eat part of the gain. Compare this with the <strong>Facility headroom</strong> tab, where moving work itself does far more.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LLM -->
+  <section class="panel" id="p-llm" role="tabpanel" aria-labelledby="tab-llm" hidden>
+    <div class="card controls">
+      <h2>LLM energy vs batch size</h2>
+      <p class="hint">Measured on an Apple M4 Pro GPU with MLX. Batching more requests together raises power but cuts energy per token.</p>
+      <div class="field"><label for="l-model">Model</label><select id="l-model"></select></div>
+      <div class="field"><label for="l-batch">Batch size <output id="l-batch-o"></output></label>
+        <input type="range" id="l-batch" min="0" max="7" step="1" value="3"></div>
+      <div class="field"><label for="l-zone">Grid region powering it</label><select id="l-zone" class="zone"></select></div>
+      <div class="field"><label for="l-vol">Tokens per day (millions) <output id="l-vol-o"></output></label>
+        <input type="range" id="l-vol" min="0" max="6" step="1" value="2"></div>
+    </div>
+    <div class="results">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Throughput</div><div class="value" id="l-k-tps">–</div><div class="sub">tokens / second</div></div>
+        <div class="kpi"><div class="label">Energy per token</div><div class="value" id="l-k-j">–</div><div class="sub">chip: CPU + GPU + DRAM</div></div>
+        <div class="kpi"><div class="label">Carbon per 1M tokens</div><div class="value" id="l-k-g">–</div><div class="sub" id="l-k-g-s"></div></div>
+        <div class="kpi"><div class="label">Per day at this volume</div><div class="value" id="l-k-day">–</div><div class="sub" id="l-k-day-s"></div></div>
+      </div>
+      <div class="card">
+        <h2>Energy per token (J, chip: CPU + GPU + DRAM)</h2>
+        <div class="legend" id="l-legend"></div>
+        <div class="chart" id="l-chart"></div>
+        <details class="table"><summary>Show measured data</summary><div class="table-wrap"><table id="l-table"></table></div></details>
+      </div>
+      <p class="error" id="l-err" hidden></p>
+    </div>
+  </section>
+
+  <footer>
+    Carbon data © Electricity Maps (ODbL), via the EuroSys'24 artifact. Upper bounds assume perfect forecasts and average carbon intensity. Nothing you enter is stored.
+  </footer>
+</div>
+</body>
+</html>

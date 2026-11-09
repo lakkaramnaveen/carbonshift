@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "carbonshift"
+version = "0.1.0"
+description = "Reproduction of Sukprasert et al. (EuroSys'24) plus facility power-capacity limits on carbon-aware workload shifting"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "pandas>=2.0", "scipy>=1.11", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "httpx>=0.27"]
+web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+gpu = ["mlx>=0.29", "mlx-lm>=0.28"]
+
+[project.scripts]
+carbonshift-web = "carbonshift.web.server:main"
+
+[tool.setuptools.package-data]
+"carbonshift.web" = ["static/*"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

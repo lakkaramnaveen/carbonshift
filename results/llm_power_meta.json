@@ -1,0 +1,35 @@
+{
+  "chip": "Apple M4 Pro",
+  "macos": "27.0.1",
+  "mlx": "0.32.4",
+  "idle": {
+    "gpu_power": 0.029335901813788548,
+    "cpu_power": 0.6696408296210898,
+    "ram_power": 0.0,
+    "all_power": 0.6989767305966881,
+    "sys_power": 5.121437811851502,
+    "gpu_freq_mhz": 311.7111111111111,
+    "gpu_active_ratio": 0.0901538675547474,
+    "n_samples": 90
+  },
+  "args": {
+    "models": [
+      "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
+      "mlx-community/Qwen2.5-7B-Instruct-4bit"
+    ],
+    "batches": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      128
+    ],
+    "max_tokens": 128,
+    "min_seconds": 6.0,
+    "repeats": 3
+  },
+  "date": "2026-11-09"
+}

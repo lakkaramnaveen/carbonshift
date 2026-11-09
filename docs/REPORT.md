@@ -1,0 +1,143 @@
+# Carbon-Aware Workload Shifting Meets the Facility's Power Limit
+
+**A reproduction of Sukprasert, Souza, Bashir, Irwin & Shenoy, "On the Limitations of Carbon-Aware Temporal and Spatial Workload Shifting in the Cloud" (EuroSys 2024), extended with facility power-capacity and UPS-battery limits and with GPU power measured against LLM batch size.**
+
+Naveen Lakkaram · November 2026 · code and data: this repository (`scripts/reproduce.py`, `scripts/facility_experiments.py`)
+
+---
+
+## 1. Motivation
+
+Sukprasert et al. bound the carbon saved by moving cloud work in **time** (deferring or pausing jobs into low-carbon hours) and **space** (migrating work to greener regions). They use hourly Electricity Maps traces for 123 grid zones. Their central message is that the practical savings are far below the ideal. The spatial analysis already applies capacity limits, but the temporal analysis treats each job alone and so lets every job fall into the same low-carbon hours. The authors name this gap themselves (§5.2.5, "resource constraints that prevent running many jobs during low carbon periods").
+
+A data centre is an electrical facility before it is a computer. Its grid draw is bounded by the utility service, the substation transformers, switchgear, the UPS rating with N+1 or 2N redundancy, and the generator plant sized to back it up. This project asks:
+
+> **How much of the ideal temporal carbon saving survives once all shifted work must fit under the facility's power rating? And can the UPS batteries a facility already owns shift carbon on their own?**
+
+## 2. Reproduction
+
+I re-implemented the analysis from scratch: vectorised NumPy, about 20 s for every figure on a laptop instead of a 50-process loop. I ran it on the authors' released 2022 traces. A unit test checks my temporal code against a line-by-line port of the artifact's loop, so edge handling matches exactly: windows are clipped at the end of the year, and "one-year slack" means "until the end of the year".
+
+**Result: 27 of 30 numeric claims reproduce.** Each lands within about 1 g·CO₂eq, 0.6 percentage points, or 3% of the stated value. The single "< 10" bound is also met (`results/repro_vs_paper.csv`):
+
+| Claim | Paper | Reproduced |
+|---|---:|---:|
+| Global mean carbon intensity (g/kWh) | 368.39 | 368.38 |
+| Deferral, 1 h → 168 h job, 1-year slack (g/job-h) | 154 → 70 | 153.9 → 69.9 |
+| Deferral, 1 h → 168 h job, 24 h slack | 57 → 3 | 57.4 → 2.9 |
+| Extra from interruption, 168 h job, 1-yr slack | 43 | 42.5 |
+| Interruption peak (24 h job, 24 h slack) | 18.4 | 18.4 |
+| Equal / Azure / Google job mix, 1-yr slack | 135 / 100 / 112 | 134.9 / 100.6 / 111.9 |
+| Spatial, infinite capacity (Global / Europe / Asia) | 352 / 281 / 556 | 352.5 / 281.2 / 555.8 |
+| Spatial, 50% idle capacity (Global) | 190 | 189.7 |
+| Global reduction at 50% / 99% idle | 51.5% / 95.68% | 51.50% / 95.68% |
+| Latency SLO 250 ms, infinite / 50% util. | 92.5% / 45.7% | 92.5% / 45.5% |
+| Latency SLO 50 ms, 50% utilisation | 31% | 31.1% |
+| 1-migration vs ∞-migration gap | < 10 g | ≤ 7.9 g |
+
+![Temporal reproduction](../figures/repro_temporal.png)
+
+**Three observations from the reproduction:**
+
+1. **Fig. 10d, 1-year slack (127 g)** is the same quantity as Fig. 10a's equal-mix value (135 g). The artifact code computes both identically and gives 134.9, so the 127 likely comes from an earlier run.
+2. **Two §1/§4 statistics don't match the stated definitions.** The share of zones with daily CV < 0.1 is 49.6%, not "> 70%"; the threshold CV < 0.15 gives 74%. The max/min mean-intensity ratio is 60× across all zones and 51× across cloud zones, not 40×. Neither changes any conclusion.
+3. **Spatial metric for groups whose work all leaves the group.** The artifact computes a group's reduction as its mean intensity minus the mean of member DCs that receive work. When no member receives work, that term becomes 0 (`NaN → 0`), as if the work landed somewhere zero-carbon. For Asia at 50% idle this gives the paper's 556 g. If each origin is instead charged the intensity where its work actually lands (dirtiest origin → greenest spare capacity), Asia gets **387 g** and the Americas at infinite capacity get 364 g instead of 380 g. The global numbers are unaffected, as are the paper's qualitative claims. Both metrics are in `results/repro_spatial.csv`.
+
+## 3. Extension: facility power limits
+
+**Model.** Power is normalised to the facility's mean IT load (= 1):
+- Each hour a share φ of the energy is flexible, pre-emptible work that must finish within `slack` hours; the remaining 1 − φ is inflexible.
+- Total grid draw in every hour must stay at or below a cap *C*. *C* − 1 is the **power headroom** the electrical plant has above average load.
+
+Minimising Σₜ CIₜ · drawₜ is a transportation LP with one variable per (arrival, hour) pair. Because every arrival has the same slack, earliest-deadline-first equals FIFO. A served profile is therefore feasible exactly when its cumulative sum stays between "arrivals delayed by the slack" and "arrivals so far". That turns the problem into an LP over 8,760 cumulative variables with banded constraints, solved by HiGHS in about 50 ms. Unit tests show:
+- it equals the brute-force per-arrival LP on random instances;
+- with *C* = ∞ it reproduces the paper's 1-hour-job number (57.4 g per flexible kWh at 24 h slack), so the paper's result is the *C* → ∞ limit of this model.
+
+The sweep covers all 123 zones × φ ∈ {25, 50, 75%} × slack ∈ {24 h, 168 h} × 14 caps (10,332 LPs, 78 s on 14 cores).
+
+**Finding 1: the ideal saving needs an absurd power spike.** With 50% flexible load and 24 h slack, the uncapped optimum crams a day's flexible work into the single cleanest hour. The median facility's peak draw is **13× its mean load**, and **85×** with 168 h slack. No facility is built that way.
+
+**Finding 2: realistic headroom keeps only part of the saving.** These are global means at φ = 0.5:
+
+| Headroom above mean load | 10% | 20% | 50% | 100% | ∞ |
+|---|---:|---:|---:|---:|---:|
+| Share of ideal kept, 24 h slack | 23% | 36% | 58% | 76% | 100% |
+| Facility CO₂ reduction, 24 h slack | 2.3% | 3.5% | 5.4% | 6.8% | 8.8% |
+| Share of ideal kept, 168 h slack | 17% | 27% | 44% | 59% | 100% |
+
+The median zone needs **+34% headroom to keep half** its ideal 24 h saving, and **+125% to keep 80%**. With weekly slack, the median zone stays below 80% even at 4× capacity: more slack only helps if there is spare power to use it.
+
+![Share of the ideal saving retained](../figures/facility_retained.png)
+
+**Finding 3: green, variable grids gain the most from headroom.** South Australia gets 6% from just 5% headroom. India-West has a flat, coal-heavy trace and stays near 5% even with unlimited power.
+
+![Selected zones](../figures/facility_zones.png)
+
+**Finding 4: UPS batteries can't do the job.** A UPS sized for 10 minutes of ride-through, fully cycled once a day with 90% round-trip efficiency, cuts emissions by **0.19% on average** (0.9% in the best zone). Keeping half of it in reserve for ride-through halves that. Even a dedicated 4-hour battery averages 3.5%, less than half-flexible load with 50% headroom (5.4%).
+
+![Battery shifting](../figures/facility_battery.png)
+
+## 4. Extension 2: GPU power vs LLM batch size, measured
+
+AI inference is the fastest-growing flexible load, and batch size is its main efficiency knob. I measured it on real hardware: an Apple M4 Pro (20-core GPU) running MLX 0.32 with two 4-bit Qwen2.5 instruct models (1.5B and 7B).
+- **Workload:** B different prompts decoded together, with concurrency forced to B; 128 new tokens each, at least 6 s per point, 3 repeats.
+- **Power:** sampled every 100 ms with `macmon`, which reads the same IOReport counters as `powermetrics` but needs no sudo.
+- **Headline metric:** chip energy (CPU + GPU + DRAM). Whole-system power drifted upward during the run as the machine warmed, so it is reported as an upper bound only. Raw data: `results/llm_power.csv`.
+
+| Model | Batch | Tokens/s | GPU W | Chip mJ/token |
+|---|---:|---:|---:|---:|
+| Qwen2.5-1.5B | 1 | 198 | 15.3 | 99 |
+| | 8 | 604 | 25.4 | 45 |
+| | 32 | 1,292 | 28.5 | **23** |
+| | 128 | 1,392 | 30.7 | 23 |
+| Qwen2.5-7B | 1 | 53 | 18.2 | 377 |
+| | 8 | 149 | 28.4 | 194 |
+| | 32 | 318 | 31.2 | **100** |
+| | 128 | 326 | 32.1 | 101 |
+
+Repeats agree within about 1%. Error bars are in the figure.
+
+![LLM power vs batch](../figures/llm_power_batch.png)
+
+**Finding 5: batching buys throughput far more cheaply than it costs power.** For the 1.5B model, going from batch 1 to batch 32 raises throughput **6.5×** while chip power rises only **1.5×**. Energy per token falls **4.3×**, and **3.8×** for the 7B model.
+
+**Finding 6: the GPU saturates at batch ≈ 32.** Past it, decode throughput rises under 10% (1,616 → 1,770 tokens/s for 1.5B, decode only) and GPU power levels off at 31–32 W. Bigger batches then add queueing delay without adding efficiency. The steps are uneven: 4 → 8 is nearly flat, then 16 → 32 jumps 1.7–1.9×. That pattern suggests a kernel-selection threshold in MLX's quantised matrix multiplication; I have not verified this.
+
+**Link to Extension 1.** On a power-capped facility, the first lever is to run inference at its efficient batch size, which delivers about 4× more tokens per joule within the same watts. Only work beyond the saturation point should be shifted in time, and that shifting is what draws on headroom. In a California-like grid (264 g/kWh mean), the 1.5B model emits about 7.3 g CO₂ per million tokens at batch 1 and 1.7 g at batch 32. That 4× gap exceeds anything temporal shifting achieved in Section 3.
+
+## 5. Takeaways
+
+1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
+2. Headroom is the real currency. Stranded power capacity is common because facilities are provisioned for peak and redundancy. Carbon-aware schedulers should treat the *remaining electrical headroom* as the scarce resource. The marginal gram saved per extra kW of headroom falls steeply after about 50%.
+3. The headroom curve sets operational savings against **embodied carbon and cost** of extra electrical plant. That trade-off connects to Ecovisor's idea of exposing power and energy to applications, and to CarbonScaler's elasticity.
+
+## 6. Limitations
+
+- Grid **average** carbon intensity is used, as in the paper. Marginal intensity can change conclusions.
+- Forecasts are perfect. The paper estimates about a 3% loss at CarbonCast-level errors.
+- Inflexible load is flat. Real IT load has a diurnal shape that uses up some headroom at the very hours where solar makes the grid cleanest.
+- Flexible work is modelled as fluid and pre-emptible; long, non-parallel jobs would retain less. Migration and checkpoint overheads are ignored.
+- Batteries are charged at grid average intensity, and degradation and the embodied carbon of extra headroom are not counted.
+- The GPU numbers come from one laptop-class Apple chip running two small 4-bit models. They show the shape of the batch curve, not data-centre accelerator numbers. Background apps were running during the measurement, which is why whole-system power is reported only as an upper bound.
+
+## 7. Next steps
+
+1. Use a real facility load shape and per-cluster power caps, such as the Google power-trace data, in place of the flat base load.
+2. Add a joint spatial-temporal model in which each region has its own power cap, so that low-carbon regions saturate.
+3. Make the trade-off explicit: the embodied carbon of extra transformer, UPS and generator capacity against the operational carbon saved, giving a carbon-optimal headroom.
+4. Model facility-aware control in an Ecovisor-style virtual energy system that exposes "power budget" alongside "carbon signal" to applications.
+5. Repeat the batch-size study on a data-centre GPU (an A100 or H100 with `nvidia-smi` power capping), adding a power-cap sweep. The question is whether "batch first, then shift" holds when the chip itself is capped.
+
+## 8. Interactive explorer
+
+`carbonshift-web` serves a small app for experimenting with every model in this report: pick a grid region and slide the job length, slack, flexible share, power headroom, battery size or LLM batch, and the results update live. See the README for its security design.
+
+## Reproducing
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/python -m pytest              # 35 tests
+.venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
+.venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
+.venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`
+```

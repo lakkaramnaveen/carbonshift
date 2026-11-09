@@ -1,0 +1,67 @@
+idle: GPU 0.03 W  SoC 0.70 W  system 5.12 W
+Qwen2.5-1.5B-Instruct-4bit   B=   1 rep=0    198.7 tok/s  GPU  14.5 W  sys  45.1 W    72.91 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   2 rep=0    363.5 tok/s  GPU  17.9 W  sys  61.5 W    49.37 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   4 rep=0    533.6 tok/s  GPU  21.3 W  sys  66.8 W    39.97 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   8 rep=0    607.5 tok/s  GPU  24.8 W  sys  69.3 W    40.84 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  16 rep=0    752.6 tok/s  GPU  27.2 W  sys  71.0 W    36.16 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  32 rep=0   1289.4 tok/s  GPU  27.8 W  sys  72.3 W    21.55 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  64 rep=0   1354.8 tok/s  GPU  29.4 W  sys  75.7 W    21.73 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B= 128 rep=0   1390.6 tok/s  GPU  30.4 W  sys  77.4 W    21.85 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   1 rep=1    198.6 tok/s  GPU  15.8 W  sys  61.6 W    79.33 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   2 rep=1    366.6 tok/s  GPU  19.4 W  sys  64.0 W    52.85 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   4 rep=1    536.2 tok/s  GPU  22.8 W  sys  71.5 W    42.55 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   8 rep=1    602.1 tok/s  GPU  25.9 W  sys  71.9 W    42.95 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  16 rep=1    748.6 tok/s  GPU  28.1 W  sys  72.2 W    37.55 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  32 rep=1   1298.1 tok/s  GPU  28.9 W  sys  75.9 W    22.27 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  64 rep=1   1374.6 tok/s  GPU  30.6 W  sys  79.0 W    22.24 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B= 128 rep=1   1395.1 tok/s  GPU  30.7 W  sys  79.7 W    22.03 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   1 rep=2    197.8 tok/s  GPU  15.7 W  sys  62.5 W    79.45 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   2 rep=2    366.7 tok/s  GPU  19.1 W  sys  64.7 W    52.22 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   4 rep=2    532.9 tok/s  GPU  22.3 W  sys  69.3 W    41.82 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=   8 rep=2    602.8 tok/s  GPU  25.4 W  sys  70.9 W    42.20 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  16 rep=2    748.9 tok/s  GPU  27.8 W  sys  71.4 W    37.13 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  32 rep=2   1289.8 tok/s  GPU  28.7 W  sys  75.8 W    22.27 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B=  64 rep=2   1374.5 tok/s  GPU  30.8 W  sys  79.9 W    22.38 mJ/tok(GPU)
+Qwen2.5-1.5B-Instruct-4bit   B= 128 rep=2   1391.6 tok/s  GPU  31.0 W  sys  80.3 W    22.24 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   1 rep=0     53.3 tok/s  GPU  18.4 W  sys  65.7 W   344.97 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   2 rep=0     99.8 tok/s  GPU  23.4 W  sys  74.2 W   234.86 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   4 rep=0    140.8 tok/s  GPU  26.7 W  sys  80.0 W   189.28 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   8 rep=0    149.3 tok/s  GPU  28.3 W  sys  80.0 W   189.69 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  16 rep=0    183.1 tok/s  GPU  30.3 W  sys  79.9 W   165.44 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  32 rep=0    318.0 tok/s  GPU  31.1 W  sys  84.2 W    97.77 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  64 rep=0    324.0 tok/s  GPU  31.7 W  sys  85.1 W    97.94 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B= 128 rep=0    325.6 tok/s  GPU  32.2 W  sys  85.8 W    98.84 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   1 rep=1     53.6 tok/s  GPU  18.1 W  sys  65.3 W   338.30 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   2 rep=1    100.1 tok/s  GPU  23.3 W  sys  74.2 W   232.87 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   4 rep=1    141.3 tok/s  GPU  26.4 W  sys  79.2 W   186.80 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   8 rep=1    149.0 tok/s  GPU  28.4 W  sys  80.3 W   190.87 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  16 rep=1    183.1 tok/s  GPU  30.4 W  sys  79.9 W   165.96 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  32 rep=1    317.4 tok/s  GPU  31.3 W  sys  85.6 W    98.74 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  64 rep=1    324.5 tok/s  GPU  31.8 W  sys  85.2 W    98.12 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B= 128 rep=1    326.6 tok/s  GPU  32.0 W  sys  84.1 W    97.95 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   1 rep=2     53.6 tok/s  GPU  17.9 W  sys  64.2 W   334.70 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   2 rep=2    100.1 tok/s  GPU  23.2 W  sys  73.0 W   231.34 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   4 rep=2    140.7 tok/s  GPU  26.3 W  sys  78.9 W   187.05 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=   8 rep=2    149.1 tok/s  GPU  28.3 W  sys  80.3 W   189.64 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  16 rep=2    183.3 tok/s  GPU  30.3 W  sys  79.0 W   165.42 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  32 rep=2    318.0 tok/s  GPU  31.2 W  sys  84.3 W    98.06 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B=  64 rep=2    324.3 tok/s  GPU  31.9 W  sys  85.3 W    98.26 mJ/tok(GPU)
+Qwen2.5-7B-Instruct-4bit     B= 128 rep=2    327.1 tok/s  GPU  32.0 W  sys  83.7 W    97.83 mJ/tok(GPU)
+  (RESULTS / "llm_power_meta.json").write_text(json.dumps(meta, indent=2))
+                     model  batch  tok_per_s  gpu_power_w  all_power_w  sys_power_w  gpu_j_per_tok  sys_j_per_tok  sys_dynamic_j_per_tok  gpu_freq_mhz  gpu_active_ratio  tok_per_s_std  gpu_power_w_std  all_power_w_std  sys_power_w_std  gpu_j_per_tok_std  sys_j_per_tok_std  sys_dynamic_j_per_tok_std  gpu_freq_mhz_std  gpu_active_ratio_std
+Qwen2.5-1.5B-Instruct-4bit      1    198.369       15.319       19.702       56.412          0.077          0.284                  0.259      1569.617             0.989          0.521            0.720            0.239            9.773              0.004              0.050                      0.050             5.886                 0.001
+Qwen2.5-1.5B-Instruct-4bit      2    365.588       18.822       23.172       63.406          0.051          0.173                  0.159      1569.000             0.985          1.838            0.770            0.212            1.705              0.002              0.004                      0.004             0.224                 0.006
+Qwen2.5-1.5B-Instruct-4bit      4    534.198       22.142       24.540       69.214          0.041          0.130                  0.120      1571.296             0.985          1.732            0.755            1.016            2.361              0.001              0.004                      0.004             5.398                 0.003
+Qwen2.5-1.5B-Instruct-4bit      8    604.137       25.371       26.916       70.708          0.042          0.117                  0.109      1570.403             0.983          2.955            0.527            0.217            1.309              0.001              0.003                      0.003             2.613                 0.005
+Qwen2.5-1.5B-Instruct-4bit     16    750.009       27.712       28.697       71.523          0.037          0.095                  0.089      1570.388             0.987          2.219            0.455            0.434            0.633              0.001              0.001                      0.001             2.907                 0.005
+Qwen2.5-1.5B-Instruct-4bit     32   1292.458       28.471       29.506       74.675          0.022          0.058                  0.054      1574.399             0.983          4.899            0.603            0.886            2.026              0.000              0.001                      0.001             4.300                 0.003
+Qwen2.5-1.5B-Instruct-4bit     64   1367.969       30.259       31.214       78.210          0.022          0.057                  0.053      1569.885             0.984         11.419            0.715            0.601            2.200              0.000              0.001                      0.001             4.080                 0.008
+Qwen2.5-1.5B-Instruct-4bit    128   1392.437       30.692       31.463       79.128          0.022          0.057                  0.053      1575.952             0.988          2.330            0.286            0.221            1.538              0.000              0.001                      0.001             2.116                 0.001
+  Qwen2.5-7B-Instruct-4bit      1     53.493       18.151       20.166       65.058          0.339          1.216                  1.120      1569.862             0.984          0.171            0.223            1.685            0.793              0.005              0.018                      0.018             1.596                 0.005
+  Qwen2.5-7B-Instruct-4bit      2     99.984       23.299       24.268       73.816          0.233          0.738                  0.687      1572.924             0.988          0.195            0.134            0.199            0.670              0.002              0.008                      0.008             4.016                 0.002
+  Qwen2.5-7B-Instruct-4bit      4    140.939       26.456       27.441       79.371          0.188          0.563                  0.527      1569.152             0.987          0.329            0.178            0.229            0.591              0.001              0.004                      0.004             0.295                 0.001
+  Qwen2.5-7B-Instruct-4bit      8    149.162       28.351       28.908       80.187          0.190          0.538                  0.503      1572.344             0.991          0.150            0.085            0.247            0.183              0.001              0.002                      0.002             4.497                 0.002
+  Qwen2.5-7B-Instruct-4bit     16    183.182       30.336       31.249       79.565          0.166          0.434                  0.406      1573.469             0.994          0.105            0.048            0.279            0.517              0.000              0.003                      0.003             0.376                 0.001
+  Qwen2.5-7B-Instruct-4bit     32    317.813       31.207       31.917       84.696          0.098          0.267                  0.250      1573.459             0.995          0.337            0.126            0.432            0.786              0.000              0.003                      0.003             3.788                 0.001
+  Qwen2.5-7B-Instruct-4bit     64    324.288       31.815       32.492       85.197          0.098          0.263                  0.247      1574.907             0.996          0.221            0.071            0.039            0.135              0.000              0.000                      0.000             1.465                 0.000
+  Qwen2.5-7B-Instruct-4bit    128    326.416       32.056       32.950       84.514          0.098          0.259                  0.243      1576.995             0.996          0.792            0.106            0.797            1.137              0.001              0.004                      0.004             0.653                 0.000
