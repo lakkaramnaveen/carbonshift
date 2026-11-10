@@ -13,7 +13,7 @@ dependencies = ["numpy>=1.24", "pandas>=2.0", "scipy>=1.11", "matplotlib>=3.7"]
 dev = ["pytest>=7", "httpx>=0.27"]
 web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 gpu = ["mlx>=0.29", "mlx-lm>=0.28"]
-paper = ["python-docx>=1.1"]
+paper = ["python-docx>=1.1", "reportlab>=4"]
 
 [project.scripts]
 carbonshift-web = "carbonshift.web.server:main"

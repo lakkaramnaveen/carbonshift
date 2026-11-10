@@ -5,7 +5,7 @@ This repository holds a clean-room **reproduction** of Sukprasert, Souza, Bashir
 1. **Power headroom.** All shifted work must fit under the facility's power rating, which is set by the utility service, transformers, UPS and generators. How much of the ideal carbon saving survives?
 2. **LLM inference energy against batch size, measured** on an Apple M4 Pro GPU. How many tokens per joule does each extra watt of headroom buy?
 
-Full write-up: **[docs/REPORT.md](docs/REPORT.md)**. Research paper (Word): **[carbonshift_paper.docx](carbonshift_paper.docx)**, generated from the result CSVs by `scripts/build_paper.py`.
+Full write-up: **[docs/REPORT.md](docs/REPORT.md)**. Research paper (Word): **[carbonshift_paper.docx](carbonshift_paper.docx)**, generated from the result CSVs by `scripts/build_paper.py`. One-page summary (PDF): **[carbonshift_summary.pdf](carbonshift_summary.pdf)**, from `scripts/build_summary.py`.
 
 ## Headline results
 
