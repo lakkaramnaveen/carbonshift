@@ -291,7 +291,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 44 tests
+.venv/bin/python -m pytest              # 66 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

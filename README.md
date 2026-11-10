@@ -1,6 +1,8 @@
 # carbonshift: carbon-aware workload shifting under facility power limits
 
-This repository holds a clean-room **reproduction** of Sukprasert, Souza, Bashir, Irwin & Shenoy, *"On the Limitations of Carbon-Aware Temporal and Spatial Workload Shifting in the Cloud"* (EuroSys 2024, [arXiv:2306.06502](https://arxiv.org/abs/2306.06502)). It adds two **extensions** that ask what the data-centre facility itself allows:
+[![tests](https://github.com/lakkaramnaveen/carbonshift/actions/workflows/tests.yml/badge.svg)](https://github.com/lakkaramnaveen/carbonshift/actions/workflows/tests.yml)
+
+This repository holds a clean-room **reproduction** of Sukprasert, Souza, Bashir, Irwin & Shenoy, *"On the Limitations of Carbon-Aware Temporal and Spatial Workload Shifting in the Cloud"* (EuroSys 2024, [arXiv:2306.06502](https://arxiv.org/abs/2306.06502)). It then asks what the data-centre facility itself allows. The first two **extensions** are:
 
 1. **Power headroom.** All shifted work must fit under the facility's power rating, which is set by the utility service, transformers, UPS and generators. How much of the ideal carbon saving survives?
 2. **LLM inference energy against batch size, measured** on an Apple M4 Pro GPU. How many tokens per joule does each extra watt of headroom buy?
@@ -42,6 +44,16 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
 
+**Further findings** (F11–F18 in the log):
+
+- **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
+- **Forecast error** (5–15% MAPE) and power caps compound almost independently.
+- **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
+- **Marginal signals** (EIA-930, 48 US balancing authorities): a schedule optimised on the *average* signal captures only 7% of the marginal-optimal saving and *raises* marginal emissions in 44% of BAs.
+- **Siting.** Spatial and temporal flexibility want capacity in opposite places (rank correlation −0.39 to −0.15 across 32 GCP regions), and under real per-region caps they compete for the same headroom: temporal shifting adds under 1 pp on top of migration.
+- **Carbon-aware LLM batching** adds only 1.6–4.8% over static batching at the efficient size, which already cuts CO₂ 41–71% versus batch 1.
+- **Uncertainty.** "Build power, not servers" holds in 100% of 5,000 Monte Carlo draws over EPD ranges.
+
 ![Facility headroom](figures/facility_retained.png)
 
 ## Interactive explorer
@@ -73,23 +85,37 @@ Settings: `CARBONSHIFT_ALLOWED_HOSTS`, `CARBONSHIFT_CORS_ORIGINS`, `CARBONSHIFT_
 
 ```
 src/carbonshift/
-  data.py       load traces + region groupings (preprocessing identical to the artifact)
-  temporal.py   deferral / interruption upper bounds (vectorised; tested against the original loop)
-  spatial.py    capacity-, latency-constrained migration; 1- vs inf-migration
-  facility.py   power-capped shifting LP (cumulative-flow form, hourly caps, shadow prices) + battery LP
-  embodied.py   EPD-derived embodied carbon per kW: transformers, UPS, generators, servers (cited)
-  redundancy.py N+1 / 2N topologies, maintenance + failure windows, carbon-aware maintenance
-  power.py      sudo-free Apple Silicon power sampling via macmon
-  plotting.py   shared figure style (colour-blind-validated palette)
-  web/          secure FastAPI explorer API + dependency-free responsive UI (static/)
+  data.py              load traces + region groupings (preprocessing identical to the artifact)
+  temporal.py          deferral / interruption upper bounds (vectorised; tested against the original loop)
+  spatial.py           capacity-, latency-constrained migration; 1- vs inf-migration
+  facility.py          power-capped shifting LP (cumulative-flow form, hourly caps, shadow prices) + battery LP
+  spatial_capacity.py  hourly migration LP under per-region caps; joint spatial + temporal LP
+  embodied.py          EPD-derived embodied carbon per kW: transformers, UPS, generators, servers (cited)
+  redundancy.py        N+1 / 2N topologies, maintenance + failure windows, carbon-aware maintenance
+  forecast.py          MAPE-calibrated AR(1) forecast errors and the regret they cause
+  google_power.py      Google PowerData2019 loader (real utilisation and load shapes)
+  eia930.py            EIA-930 average and marginal (Siler-Evans) emission signals
+  llm_batching.py      static vs carbon-aware batching under a latency budget (Lagrangian, LP-checked)
+  power.py             sudo-free Apple Silicon power sampling via macmon
+  plotting.py          shared figure style (colour-blind-validated palette)
+  web/                 secure FastAPI explorer API + dependency-free responsive UI (static/)
 scripts/
-  reproduce.py              all paper figures/claims -> results/repro_*.csv, figures/repro_*.png
-  facility_experiments.py   headroom x flexibility x slack sweep, battery sweep
-  llm_power_batch.py        GPU power / throughput / energy per token vs batch size (MLX)
-  redundancy_experiments.py shadow price of capacity, embodied payback, redundancy dividend
-  robustness_years.py       re-run facility findings on 2020 / 2021 / 2022 traces
-  build_paper.py            generate carbonshift_paper.docx from results/*.csv
-tests/          44 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+  reproduce.py                 all paper figures/claims -> results/repro_*.csv, figures/repro_*.png
+  facility_experiments.py      headroom x flexibility x slack sweep, battery sweep
+  llm_power_batch.py           GPU power / throughput / energy per token vs batch size (MLX)
+  redundancy_experiments.py    shadow price of capacity, embodied payback, redundancy dividend
+  robustness_years.py          re-run facility findings on 2020 / 2021 / 2022 traces
+  forecast_experiments.py      forecast error x power cap
+  diurnal_load_experiments.py  real Google utilisation and load shapes
+  siting_experiments.py        spatial vs temporal value of capacity across GCP regions
+  llm_batching_experiments.py  carbon-aware batching across 120 grids
+  variability_drivers.py       what drives the value of capacity (swing vs level)
+  embodied_uncertainty.py      Monte Carlo over embodied-carbon factors
+  marginal_experiments.py      average vs marginal signals (EIA-930)
+  joint_experiments.py         spatial + temporal shifting under per-region caps
+  build_paper.py               generate carbonshift_paper.docx from results/*.csv
+  build_summary.py             generate the one-page carbonshift_summary.pdf
+tests/          66 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -100,7 +126,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 44 tests, ~5 s
+.venv/bin/python -m pytest                              # 66 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min
