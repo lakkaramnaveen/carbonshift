@@ -26,6 +26,8 @@
     <button role="tab" id="tab-facility" aria-controls="p-facility" aria-selected="false">Facility headroom</button>
     <button role="tab" id="tab-battery" aria-controls="p-battery" aria-selected="false">UPS battery</button>
     <button role="tab" id="tab-llm" aria-controls="p-llm" aria-selected="false">LLM on GPU</button>
+    <button role="tab" id="tab-capacity" aria-controls="p-capacity" aria-selected="false">Build or not?</button>
+    <button role="tab" id="tab-siting" aria-controls="p-siting" aria-selected="false">Siting</button>
   </nav>
 
   <!-- Temporal -->
@@ -142,6 +144,57 @@
         <details class="table"><summary>Show measured data</summary><div class="table-wrap"><table id="l-table"></table></div></details>
       </div>
       <p class="error" id="l-err" hidden></p>
+    </div>
+  </section>
+
+  <!-- Capacity value -->
+  <section class="panel" id="p-capacity" role="tabpanel" aria-labelledby="tab-capacity" hidden>
+    <div class="card controls">
+      <h2>What is one more kW worth?</h2>
+      <p class="hint">Real facilities run below their power rating, and tier redundancy (N+1, 2N) holds spare capacity that deferrable work can use. Should you build more?</p>
+      <div class="field"><label for="c-zone">Grid region</label><select id="c-zone" class="zone"></select></div>
+      <div class="field"><label for="c-util">Design utilisation <output id="c-util-o"></output></label>
+        <input type="range" id="c-util" min="40" max="95" step="5" value="70">
+        <div class="ticks"><span>40%</span><span>Google median 70%</span><span>95%</span></div></div>
+      <div class="field"><label for="c-topo">Capacity flexible work may use</label>
+        <select id="c-topo"><option value="design_only">Design capacity only</option><option value="N+1 (N=4)">+ N+1 spare module</option><option value="2N">+ 2N redundant path</option></select></div>
+      <div class="field"><label for="c-build">If you build one more kW, it is</label>
+        <select id="c-build"><option value="grid_only">Grid-only electrical (transformer + switchgear)</option><option value="backed">Fully backed electrical (+ UPS + generator)</option><option value="gpu_servers">GPU servers</option><option value="cpu_servers">CPU servers</option></select></div>
+      <div class="field"><label for="c-flex">Flexible share of load <output id="c-flex-o"></output></label>
+        <input type="range" id="c-flex" min="5" max="95" step="5" value="50"></div>
+    </div>
+    <div class="results" id="c-out">
+      <div class="kpis">
+        <div class="kpi"><div class="label">CO₂ reduction now</div><div class="value good" id="c-k-red">–</div><div class="sub" id="c-k-red-s"></div></div>
+        <div class="kpi"><div class="label">Value of +1 kW</div><div class="value" id="c-k-val">–</div><div class="sub" id="c-k-val-s">kg CO₂ per year</div></div>
+        <div class="kpi"><div class="label">Carbon payback</div><div class="value" id="c-k-pay">–</div><div class="sub" id="c-k-pay-s"></div></div>
+      </div>
+      <div class="card">
+        <h2>How to read this</h2>
+        <p class="note" id="c-note">–</p>
+        <p class="note">Value of +1 kW is the shadow price of capacity from the scheduling LP. Its best single predictor is the grid's daily swing in carbon intensity, not its average. Payback compares that value with embodied carbon from manufacturer EPDs and server footprints, assuming savings shrink 3% a year as grids decarbonise.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Siting -->
+  <section class="panel" id="p-siting" role="tabpanel" aria-labelledby="tab-siting" hidden>
+    <div class="card controls">
+      <h2>Where should the next kW go?</h2>
+      <p class="hint">32 GCP regions with measured latency. Spatial value: hosting work migrated from other regions. Temporal value: shifting local work in time.</p>
+      <div class="field"><label for="s-lat">Latency limit for migration</label>
+        <select id="s-lat"><option value="50">50 ms</option><option value="100" selected>100 ms</option><option value="250">250 ms</option></select></div>
+      <div class="field"><label for="s-sort">Rank by</label>
+        <select id="s-sort"><option value="spatial">Spatial value (work can move)</option><option value="temporal">Temporal value (work must stay)</option></select></div>
+      <p class="note">Spatial value follows clean grids; temporal value follows variable grids. The two rankings point in opposite directions.</p>
+    </div>
+    <div class="results">
+      <div class="card">
+        <h2>Value of one more kW (kg CO₂ per year)</h2>
+        <div class="legend"><span class="l1">Spatial (migration destination)</span><span class="l2">Temporal (time shifting)</span></div>
+        <div class="chart" id="s-chart"></div>
+      </div>
+      <p class="error" id="s-err" hidden></p>
     </div>
   </section>
 

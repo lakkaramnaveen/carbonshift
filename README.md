@@ -53,7 +53,7 @@ Every model in this project has knobs you can turn in the browser:
 .venv/bin/carbonshift-web            # then open http://127.0.0.1:8000
 ```
 
-It has four tabs: **Grid shifting** (job length and slack), **Facility headroom** (flexible share, slack, power cap, and a week-by-week schedule), **UPS battery** (size, reserve, efficiency) and **LLM on GPU** (model, batch, grid region, daily volume).
+It has six tabs: **Grid shifting** (job length and slack), **Facility headroom** (flexible share, slack, power cap, and a week-by-week schedule), **UPS battery** (size, reserve, efficiency), **LLM on GPU** (model, batch, grid region, daily volume), **Build or not?** (design utilisation, N+1 / 2N redundancy, what you would build: value of +1 kW and embodied payback) and **Siting** (32 GCP regions ranked by spatial vs temporal value of capacity).
 
 **Security design.** The service is read-only and compute-only. It stores no user data and needs no secrets.
 

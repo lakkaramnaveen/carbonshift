@@ -28,7 +28,8 @@ Each loop iteration takes the top backlog item, checks it is new, implements it 
 
 ## Backlog (ranked by value ÷ cost)
 
-1. **Explorer tabs for the new findings.** Expose shadow price, redundancy and siting knobs in the web UI (engineering; no novelty check needed).
+
+_(empty: every high-value item is done or deferred)_
 
 ## Iteration notes
 
@@ -43,3 +44,5 @@ Each loop iteration takes the top backlog item, checks it is new, implements it 
 - **Iteration 7 (2026-11-09):** embodied-carbon Monte Carlo (F16). Robustness check, so no novelty search. Vectorised payback tested against the scalar version.
 - **Iteration 8 (2026-11-09):** marginal signals from EIA-930 (F17). Novelty check: Sukprasert et al. 2024 already compare average vs marginal signals for shifting (65 regions); new here are the capped-facility setting, the swing law and siting under marginal signals. Raw EIA files are git-ignored (85 MB); the derived hourly signals (5.7 MB, public domain) are committed.
 - **Iteration 9 (2026-11-09):** joint spatio-temporal shifting under caps (F18). Novelty check: the EuroSys'24 paper (Fig. 12) combines the two without capacity limits, and Hall et al. (2024) add both to Google's VCC framework, but neither quantifies how a cap makes them compete. The per-origin cumulative-flow LP is tested to reduce exactly to temporal-only and spatial-only shifting.
+- **Iteration 10 (2026-11-09):** explorer tabs "Build or not?" (value of +1 kW, redundancy topology, embodied payback) and "Siting" (spatial vs temporal value by region). Browser testing caught a misleading display: the swing predictor is fitted at +20% headroom, so the UI no longer shows it at other headroom levels (the API field is renamed `predicted_at_20pct_headroom_kg_per_kw_year`). 2 new API tests.
+- **Loop stopped (2026-11-09):** backlog empty. The second run added F16-F18 and two explorer tabs.

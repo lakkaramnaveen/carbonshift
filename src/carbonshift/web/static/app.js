@@ -307,6 +307,62 @@ const runLLM = debounce(async () => {
   } catch (e) { if (e.name !== "AbortError") { $("l-err").hidden = false; set("l-err", e.message); } }
 }, 150);
 
+// ------------------------------------------------------------------ capacity value
+const BUILD_NAMES = { grid_only: "grid-only electrical", backed: "fully backed electrical", gpu_servers: "GPU servers", cpu_servers: "CPU servers" };
+const runCapacity = debounce(async () => {
+  const util = +$("c-util").value, flex = +$("c-flex").value, topo = $("c-topo").value, build = $("c-build").value;
+  set("c-util-o", `${util}%`); set("c-flex-o", `${flex}%`);
+  busy("c-out", true);
+  try {
+    const r = await api("c", "/api/capacity", { zone: $("c-zone").value, utilization_pct: util, topology: topo, build, flexible_pct: flex });
+    set("c-k-red", `−${fmt(r.reduction_pct)}%`);
+    set("c-k-red-s", `headroom +${fmt(r.headroom_pct, 0)}% · ideal −${fmt(r.ideal_reduction_pct)}%`);
+    set("c-k-val", fmt(r.value_kg_per_kw_year, 0));
+    set("c-k-val-s", `kg CO₂ per year · grid swings ${fmt(r.daily_std_g_per_kwh, 0)} g/kWh a day`);
+    set("c-k-pay", r.payback_years === null ? "never" : `${fmt(r.payback_years, r.payback_years < 1 ? 2 : 1)} y`);
+    set("c-k-pay-s", `${fmt(r.embodied_kg_per_kw, 0)} kg/kW embodied · ${r.lifetime_years} y life`);
+    $("c-k-pay").classList.toggle("good", r.pays_back_in_life);
+    set("c-note", r.pays_back_in_life
+      ? `Building ${BUILD_NAMES[build]} here repays its embodied carbon within its ${r.lifetime_years}-year life. The grid swings by about ${fmt(r.daily_std_g_per_kwh, 0)} g/kWh a day.`
+      : `Building ${BUILD_NAMES[build]} here does not repay its embodied carbon within its ${r.lifetime_years}-year life. Use spare capacity you already own, or build electrical headroom instead.`);
+  } catch (e) { if (e.name !== "AbortError") set("c-k-red", "error"); }
+  busy("c-out", false);
+}, 200);
+
+// ------------------------------------------------------------------ siting
+let SITING = null;
+function hbars(container, rows, labelKey, series) {
+  container.replaceChildren();
+  const W = 640, rowH = 16, m = { l: 120, r: 46, t: 4, b: 4 };
+  const H = m.t + m.b + rows.length * rowH * series.length + rows.length * 4;
+  const max = Math.max(1, ...rows.flatMap((r) => series.map((s) => r[s.key] || 0)));
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "siting bars" }, container);
+  rows.forEach((r, i) => {
+    const y0 = m.t + i * (rowH * series.length + 4);
+    el("text", { x: m.l - 6, y: y0 + rowH * series.length / 2 + 4, "text-anchor": "end", class: "lbl" }, svg).textContent = r[labelKey];
+    series.forEach((s, k) => {
+      const v = Math.max(0, r[s.key] || 0), w = v / max * (W - m.l - m.r);
+      el("rect", { x: m.l, y: y0 + k * rowH + 2, width: Math.max(w, 1), height: rowH - 4, rx: 3, class: s.cls }, svg);
+      el("text", { x: m.l + w + 4, y: y0 + k * rowH + rowH - 4, class: "lbl" }, svg).textContent = fmt(v, 0);
+    });
+  });
+}
+
+async function loadSiting() {
+  try { SITING = await api("s", "/api/siting"); }
+  catch (e) { $("s-err").hidden = false; set("s-err", `Siting results unavailable: ${e.message}`); return; }
+  renderSiting();
+}
+
+function renderSiting() {
+  if (!SITING) return;
+  const lat = $("s-lat").value, key = `spatial_${lat}ms_kg_per_kw_yr`;
+  const sortKey = $("s-sort").value === "spatial" ? key : "temporal_kg_per_kw_yr";
+  const rows = [...SITING.rows].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 16)
+    .map((r) => ({ ...r, label: `${r.name}`.slice(0, 20) }));
+  hbars($("s-chart"), rows, "label", [{ key, cls: "f1" }, { key: "temporal_kg_per_kw_yr", cls: "f2" }]);
+}
+
 // ------------------------------------------------------------------ tabs, theme, boot
 function setupTabs() {
   const tabs = [...document.querySelectorAll("nav.tabs button")];
@@ -347,7 +403,7 @@ function setupTheme() {
   apply();
 }
 
-function refreshAll() { runTemporal(); runFacility(); runBattery(); runLLM(); }
+function refreshAll() { runTemporal(); runFacility(); runBattery(); runLLM(); runCapacity(); }
 
 async function boot() {
   setupTheme();
@@ -367,8 +423,11 @@ async function boot() {
   for (const id of ["b-min", "b-res", "b-eff"]) $(id).addEventListener("input", runBattery);
   for (const id of ["l-batch", "l-vol"]) $(id).addEventListener("input", runLLM);
   $("l-model").addEventListener("change", runLLM);
-  runTemporal(); runFacility(); runBattery();
-  loadLLM();
+  for (const id of ["c-util", "c-flex"]) $(id).addEventListener("input", runCapacity);
+  for (const id of ["c-topo", "c-build"]) $(id).addEventListener("change", runCapacity);
+  for (const id of ["s-lat", "s-sort"]) $(id).addEventListener("change", renderSiting);
+  runTemporal(); runFacility(); runBattery(); runCapacity();
+  loadLLM(); loadSiting();
 }
 
 document.addEventListener("DOMContentLoaded", boot);

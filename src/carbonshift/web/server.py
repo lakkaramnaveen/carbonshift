@@ -47,7 +47,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from carbonshift.data import load_carbon, region_groups
+from carbonshift.embodied import LIFETIME, per_kw, payback_years
 from carbonshift.facility import battery_shift, capped_shift
+from carbonshift.redundancy import installed_cap
 from carbonshift.temporal import shift_one_zone
 
 log = logging.getLogger("carbonshift.web")
@@ -56,6 +58,8 @@ ROOT = Path(__file__).resolve().parents[3]
 STATIC = Path(__file__).resolve().parent / "static"
 LLM_SUMMARY = ROOT / "results" / "llm_power_summary.csv"
 LLM_META = ROOT / "results" / "llm_power_meta.json"
+SITING = ROOT / "results" / "siting_per_region.csv"
+VARIABILITY = ROOT / "results" / "variability_summary.csv"
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("CARBONSHIFT_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 CORS_ORIGINS = [o.strip() for o in os.getenv("CARBONSHIFT_CORS_ORIGINS", "").split(",") if o.strip()]
@@ -165,6 +169,13 @@ class LLMIn(ZoneIn):
 
 
 
+class CapacityIn(ZoneIn):
+    utilization_pct: int = Field(ge=40, le=95)
+    topology: Literal["design_only", "N+1 (N=4)", "2N"]
+    build: Literal["grid_only", "backed", "gpu_servers", "cpu_servers"]
+    flexible_pct: int = Field(default=50, ge=5, le=95)
+
+
 # --------------------------------------------------------------------------- cached computations
 def _r(x: float, n: int = 2) -> float:
     return round(float(x), n) if math.isfinite(x) else None  # type: ignore[return-value]
@@ -227,6 +238,47 @@ def compute_battery(zone: str, minutes: int, reserve_pct: int, eff_pct: int) -> 
     return {"reduction_pct": _r(b.reduction_pct, 3), "baseline_g_per_kwh": _r(b.baseline_g),
             "optimised_g_per_kwh": _r(b.optimised_g),
             "full_cycles_per_year": _r(b.throughput_kwh / usable_h, 0) if usable_h > 0 else 0}
+
+
+@lru_cache(maxsize=1)
+def swing_predictor() -> tuple[float, float] | None:
+    """(k, exponent) of value ~ k * daily_std**exponent from scripts/variability_drivers.py, if available."""
+    if not VARIABILITY.exists():
+        return None
+    v = pd.read_csv(VARIABILITY, index_col=0)["value"]
+    if "loglog_constant_k" not in v:
+        return None
+    return float(v["loglog_constant_k"]), float(v["loglog_elasticity_shadow_vs_std"])
+
+
+@lru_cache(maxsize=512)
+def compute_capacity(zone: str, util_pct: int, topology: str, build: str, flex_pct: int) -> dict:
+    ci = carbon()[zone]
+    phi = flex_pct / 100
+    cap = installed_cap(util_pct / 100, topology)
+    r = capped_shift(ci.to_numpy(), phi, cap, 24)
+    ideal = _capped(zone, phi, math.inf, 24)
+    g = r.annual_marginal_saving  # g CO2 per kW-year
+    emb = per_kw(build)[1]
+    pay = payback_years(emb, g, 0.03)
+    daily = ci.groupby(ci.index.date)
+    std = float(daily.std().mean())
+    pred = swing_predictor()
+    return {
+        "cap_x_mean": _r(cap, 3), "headroom_pct": _r((cap - 1) * 100, 1),
+        "reduction_pct": _r(r.facility_reduction_pct), "ideal_reduction_pct": _r(ideal.facility_reduction_pct),
+        "value_kg_per_kw_year": _r(g / 1000, 1),
+        "predicted_at_20pct_headroom_kg_per_kw_year": _r(pred[0] * std ** pred[1], 1) if pred else None,  # predictor is fitted at +20% headroom only
+        "daily_std_g_per_kwh": _r(std, 1),
+        "embodied_kg_per_kw": _r(emb, 0), "lifetime_years": LIFETIME[build],
+        "payback_years": _r(pay, 2) if math.isfinite(pay) else None,
+        "pays_back_in_life": bool(math.isfinite(pay) and pay <= LIFETIME[build]),
+    }
+
+
+@lru_cache(maxsize=1)
+def siting_table() -> pd.DataFrame | None:
+    return pd.read_csv(SITING) if SITING.exists() else None
 
 
 def llm_table() -> pd.DataFrame | None:
@@ -383,6 +435,19 @@ def create_app() -> FastAPI:
     @app.post("/api/battery")
     def battery(body: BatteryIn):
         return run(compute_battery, body.zone, body.energy_minutes, body.reserve_pct, body.efficiency_pct)
+
+    @app.post("/api/capacity")
+    def capacity(body: CapacityIn):
+        return run(compute_capacity, body.zone, body.utilization_pct, body.topology, body.build, body.flexible_pct)
+
+    @app.get("/api/siting")
+    def siting():
+        t = siting_table()
+        if t is None:
+            raise HTTPException(404, "siting results not available yet")
+        meta = {z["code"]: z["name"] for z in zones_meta()}
+        rows = t.round(1).assign(name=t.zone.map(meta).fillna(t.zone)).to_dict(orient="records")
+        return {"rows": rows, "latencies_ms": [50, 100, 250]}
 
     @app.get("/api/llm")
     def llm():

@@ -134,3 +134,23 @@ def test_index_has_no_inline_script(client):
     html = client.get("/").text
     assert '<script src="/static/app.js"' in html
     assert "<script>" not in html and "onclick" not in html and "style=" not in html
+
+
+def test_capacity_endpoint(client):
+    body = {"zone": ZONE, "utilization_pct": 70, "topology": "2N", "build": "grid_only", "flexible_pct": 50}
+    r = client.post("/api/capacity", json=body)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["cap_x_mean"] == pytest.approx(2 / 0.7, rel=1e-3)
+    assert 0 < d["reduction_pct"] <= d["ideal_reduction_pct"]
+    assert d["value_kg_per_kw_year"] >= 0 and d["lifetime_years"] == 25
+    for bad in ({"topology": "3N"}, {"build": "nuclear"}, {"utilization_pct": 99}, {"utilization_pct": 10}):
+        assert client.post("/api/capacity", json=body | bad).status_code == 422
+
+
+def test_siting_endpoint(client):
+    r = client.get("/api/siting")
+    assert r.status_code in (200, 404)
+    if r.status_code == 200:
+        rows = r.json()["rows"]
+        assert rows and {"zone", "temporal_kg_per_kw_yr", "spatial_100ms_kg_per_kw_yr"} <= rows[0].keys()
