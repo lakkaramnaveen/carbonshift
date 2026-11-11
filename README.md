@@ -7,7 +7,7 @@ This repository holds a clean-room **reproduction** of Sukprasert, Souza, Bashir
 1. **Power headroom.** All shifted work must fit under the facility's power rating, which is set by the utility service, transformers, UPS and generators. How much of the ideal carbon saving survives?
 2. **LLM inference energy against batch size, measured** on an Apple M4 Pro GPU. How many tokens per joule does each extra watt of headroom buy?
 
-Full write-up: **[docs/REPORT.md](docs/REPORT.md)**. Research paper (Word): **[carbonshift_paper.docx](carbonshift_paper.docx)**, generated from the result CSVs by `scripts/build_paper.py`. One-page summary (PDF): **[carbonshift_summary.pdf](carbonshift_summary.pdf)**, from `scripts/build_summary.py`.
+Full write-up: **[docs/REPORT.md](docs/REPORT.md)**. Research paper (Word): **[carbonshift_paper.docx](carbonshift_paper.docx)**, generated from the result CSVs by `scripts/build_paper.py`. One-page summary (PDF): **[carbonshift_summary.pdf](carbonshift_summary.pdf)**, from `scripts/build_summary.py`. Workshop paper draft, *Blend, Don't Choose: Average and Marginal Carbon Signals for Power-Capped Data Centres* (two-column PDF): **[carbonshift_workshop.pdf](carbonshift_workshop.pdf)**, from `scripts/build_workshop.py`.
 
 ## Headline results
 
@@ -118,6 +118,7 @@ scripts/
   battery_marginal_experiments.py  UPS batteries under marginal signals + split-half noise check
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
+  build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
 tests/          73 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
