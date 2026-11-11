@@ -42,7 +42,7 @@ REFS = [
 
 def load() -> dict:
     rd = lambda f: pd.read_csv(RES / f, index_col=0)["value"]  # noqa: E731
-    return {"wf": rd("waterfill_summary.csv"), "vb": rd("virtual_battery_summary.csv"), "ex": rd("exchange_summary.csv"),
+    return {"wf": rd("waterfill_summary.csv"), "vb": rd("virtual_battery_summary.csv"), "ex": rd("exchange_summary.csv"), "exy": rd("exchange_years_summary.csv"),
             "ds": rd("diurnal_summary.csv"), "ws": pd.read_csv(RES / "waterfill_saving_per_zone.csv"),
             "hz": pd.read_csv(RES / "virtual_battery_horizon_law.csv"), "xz": pd.read_csv(RES / "exchange_per_zone.csv")}
 
@@ -197,7 +197,10 @@ def build() -> None:
               "unlocking the same saving.", 1, [1.45 * 72] + [0.4 * 72] * 4),
         p(f"Uncapped, one virtual kWh is worth κ = {ex['X_over_virtual_median_phi0.5_capinf']:.2f} real kWh (median), and by homogeneity X/(24φ) = κ·ρ(h/φ) "
           f"for a retention curve ρ. Chaining the two closed forms predicts X with log-R² {ex['closed_form_X_r2_log']:.2f}, without an optimiser. In 7 of 123 "
-          "zones the daily spread never covers 10% losses: a battery saves nothing there, while flexible load still does."),
+          "zones the daily spread never covers 10% losses: a battery saves nothing there, while flexible load still does. "
+          f"The rate is stable across 2020-2022 (median {n['exy']['X_median_2020_cap1.2']:.1f}, {n['exy']['X_median_2021_cap1.2']:.1f}, "
+          f"{n['exy']['X_median_2022_cap1.2']:.1f} kWh/kW at +20%), and last year's value predicts this year's within 25% for "
+          f"{n['exy']['X_prev_year_within_25pct_2022_cap1.2'] * 100:.0f}% of zones."),
 
         h("7 Related Work"),
         p("Upper bounds on temporal and spatial shifting [1, 5] and Google's capacity-curve scheduling [2] are empirical or optimisation-based. Ecovisor [3] "

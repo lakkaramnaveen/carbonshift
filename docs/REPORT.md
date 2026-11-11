@@ -321,6 +321,8 @@ The last row was a prediction made from the theorem before running the test.
 
 The exchange rate inherits the homogeneity theorem: X / (24φ) = κ_zone × retention(h/φ), so φ = 0.25 at +5% gives exactly the same per-virtual-kWh rate as φ = 0.5 at +10% (0.248). With no cap, one virtual kWh is worth κ = 0.91 real kWh (median; interquartile 0.78-1.44). In 7 of 123 zones the daily spread never covers 10% losses, so a battery saves nothing while flexible load still does. Chaining the two closed forms (water-filling over the effective horizon ÷ spread law) predicts the LP exchange rate with log-R² 0.91 and a median ratio of 0.94, with no optimiser at all.
 
+**Across years.** Re-running on 2020 and 2021 (120 zones, φ = 0.5, 24 h slack), the median exchange rate at +20% headroom is 4.9, 4.8 and 4.3 kWh/kW for 2020, 2021 and 2022 (12.6, 12.4 and 11.0 uncapped). Zone rankings are stable (Spearman 0.85-0.95 between years), and last year's rate predicts this year's within 25% for 78-84% of zones (median error 9%). The spread law holds every year (R² 0.993-0.994). The slow decline means batteries gained slightly on flexibility as daily spreads widened.
+
 Caveats: embodied factors are LFP 54-69 kg CO2eq/kWh (secondary source) against grid-only headroom (transformer + switchgear, 18-38 kg/kW); batteries also sell grid services this comparison ignores, and their shorter life (about 15 years vs 25) would widen the gap further.
 
 ## 6. Takeaways

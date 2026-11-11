@@ -11,7 +11,12 @@ prices the embodied carbon a flexible facility avoids versus building that batte
 (Li-ion LFP 54-69 kg CO2eq per kWh, the range in embodied.py) and versus its own cost,
 grid-only headroom (transformer + switchgear, per kW).
 
-Outputs: results/exchange_per_zone.csv, results/exchange_summary.csv, figures/exchange_rate.png
+Cross-year check: the same exchange rate for 2020-2022 (phi = 0.5, 24 h slack, +20%, +50%,
+uncapped; flexible savings from robustness_years_per_zone.csv), its rank stability, and how
+well last year's rate predicts this year's.
+
+Outputs: results/exchange_per_zone.csv, results/exchange_summary.csv, results/exchange_years.csv,
+results/exchange_years_summary.csv, figures/exchange_rate.png
 Run: python scripts/exchange_experiments.py   (~1 min)
 """
 
@@ -97,6 +102,54 @@ def main() -> None:
     for k, v in s.items():
         print(f"{k:60s} {v:.4g}")
     figure(df, bat)
+    years()
+
+
+def _battery_year(args):
+    year, zone, ci = args
+    b = battery_shift(ci, energy_h=1.0, power=0.25, round_trip_eff=0.90)
+    return {"year": year, "zone": zone, "b4h_lp": b.baseline_g - b.optimised_g, "b4h_law": spread_saving_per_kwh(ci, 4.0, 0.90)}
+
+
+def years() -> None:
+    from scipy.stats import spearmanr
+
+    rob = pd.read_csv(RESULTS / "robustness_years_per_zone.csv")
+    jobs = []
+    for y in (2020, 2021, 2022):
+        ci = load_carbon(y)
+        jobs += [(y, z, ci[z].to_numpy()) for z in rob[rob.year == y].zone if z in ci.columns]
+    with ProcessPoolExecutor() as ex:
+        bat = pd.DataFrame(list(ex.map(_battery_year, jobs)))
+    d = rob.merge(bat, on=["year", "zone"])
+    for col, cap in (("save_1.2_g", "1.2"), ("save_1.5_g", "1.5"), ("ideal_save_g", "inf")):
+        d[f"X_{cap}"] = [exchange_rate(f, b) for f, b in zip(d[col], d.b4h_lp)]
+    d = d[["year", "zone", "b4h_lp", "b4h_law", "X_1.2", "X_1.5", "X_inf"]]
+    d.to_csv(RESULTS / "exchange_years.csv", index=False)
+
+    s = {}
+    for y, g in d.groupby("year"):
+        s[f"spread_law_r2_{y}"] = r2(g.b4h_law, g.b4h_lp)
+        for cap in ("1.2", "1.5", "inf"):
+            s[f"X_median_{y}_cap{cap}"] = float(g[f"X_{cap}"].replace(np.inf, np.nan).median())
+    w = d.pivot(index="zone", columns="year")
+    for cap in ("1.2", "inf"):
+        x = w[f"X_{cap}"].replace(np.inf, np.nan)
+        for a, b in ((2020, 2021), (2021, 2022), (2020, 2022)):
+            ok = x[[a, b]].dropna()
+            s[f"X_spearman_{a}_{b}_cap{cap}"] = float(spearmanr(ok[a], ok[b]).statistic)
+        for a, b in ((2020, 2021), (2021, 2022)):
+            ok = x[[a, b]].dropna()
+            ok = ok[(ok > 0).all(axis=1)]
+            err = np.abs(np.log(ok[a] / ok[b]))
+            s[f"X_prev_year_median_abs_log_err_{b}_cap{cap}"] = float(err.median())
+            s[f"X_prev_year_within_25pct_{b}_cap{cap}"] = float((err < np.log(1.25)).mean())
+    zero = d.assign(z=d.b4h_lp <= 1e-9).groupby("year").z.sum()
+    for y, v in zero.items():
+        s[f"zones_battery_zero_{y}"] = int(v)
+    pd.Series(s).to_csv(RESULTS / "exchange_years_summary.csv", header=["value"])
+    for k, v in s.items():
+        print(f"{k:60s} {v:.4g}")
 
 
 def figure(df: pd.DataFrame, bat: pd.DataFrame) -> None:

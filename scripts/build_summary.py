@@ -37,6 +37,8 @@ def numbers() -> dict:
     vb = pd.read_csv(RES / "virtual_battery_summary.csv", index_col=0)["value"]
     n.update(wf_save_r2=wf.saving_r2_finite_caps, wf_val_r2=wf.value_r2, vb_r2=vb.horizon_law_slack24_r2,
              vb_lossless=vb["lossless_w0.7_raises_avg_pct"], vb_lossy=vb["eta90_w0.7_raises_avg_pct"])
+    ex = pd.read_csv(RES / "exchange_summary.csv", index_col=0)["value"]
+    n.update(x20=ex["X_median_phi0.5_cap1.2"], emb20=ex["embodied_ratio_battery_over_headroom_min_phi0.5_cap1.2"])
     vs = pd.read_csv(RES / "variability_summary.csv", index_col=0)["value"]
     n.update(rho_std=vs.rho_daily_std_2022, rho_mean=vs.rho_mean_ci_2022, rho_cv=vs.rho_daily_cv_2022,
              k=vs.loglog_constant_k, e=vs.loglog_elasticity_shadow_vs_std)
@@ -97,7 +99,8 @@ def main() -> None:
           f"headroom per unit of flexible load, h/φ (exact); saving ≈ φ·A·sinc(πφ/(φ+h)) for daily swing A (R² {n['wf_save_r2']:.2f} against the LP); and the value "
           f"of a kW is a daily water-level area (R² {n['wf_val_r2']:.2f}), which is linear in the swing and blind to the mean intensity. It also explains why UPS batteries barely help, and why only "
           f"losses stop a scheduler serving both average and marginal ledgers: a lossless battery on a blended signal harms {n['vb_lossless']:.0f}% of BAs, "
-          f"versus {n['vb_lossy']:.0f}% at 90% round trip."),
+          f"versus {n['vb_lossy']:.0f}% at 90% round trip. Priced against a real 4 h battery, a half-flexible facility at +20% headroom is worth "
+          f"{n['x20']:.1f} kWh of storage per kW of load, and that battery would embody at least {n['emb20']:.0f}x the carbon of the headroom."),
         B(f"<b>Build power, not servers.</b> One extra kW is worth {n['val20']:.0f} kg CO2/yr (median zone, +20% headroom). Grid-only electrical "
           f"headroom repays its embodied carbon within its life in {n['grid_ok']:.0f}% of zones; CPU servers bought to absorb shifted work, in only "
           f"{n['cpu_ok']:.0f}%. The ordering held in every one of 5,000 Monte Carlo draws."),
@@ -126,8 +129,8 @@ def main() -> None:
                   "telemetry, repeat the GPU study on data-centre accelerators with power capping, and design carbon-optimal headroom that weighs the "
                   "embodied carbon of the electrical plant against operational savings. My background in data-centre power equipment (UPS, "
                   "switchgear, generators) is what led to this facility-side view.", body),
-        Paragraph("Artifact: github.com/lakkaramnaveen/carbonshift. It includes tested open-source code (84 tests), all data, an interactive web explorer, a full paper and a "
-                  "workshop draft. Every number above is generated from the result files.", body),
+        Paragraph("Artifact: github.com/lakkaramnaveen/carbonshift. It includes tested open-source code (88 tests), all data, an interactive web explorer, a full paper and two "
+                  "workshop drafts. Every number above is generated from the result files.", body),
     ]
     doc = SimpleDocTemplate(str(OUT), pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.5 * inch, bottomMargin=0.5 * inch,
                             title="Power Before Hours: research summary", author="Naveen Kumar Lakkaram")

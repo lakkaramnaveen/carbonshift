@@ -712,6 +712,7 @@ def build(n: dict) -> None:
         "On a marginal ledger the picture changes (Sec. 5.6).")
     P.figure(FIG / "facility_battery.png", "Facility CO2 reduction from carbon-optimal battery dispatch versus battery size.", width=4.4)
     ex = pd.read_csv(RES / "exchange_summary.csv", index_col=0)["value"]
+    exy = pd.read_csv(RES / "exchange_years_summary.csv", index_col=0)["value"]
     P.h("7.1 The storage exchange rate", 2)
     P.p(
         "Sec. 4.5 showed that capped flexible load is a lossless battery. How many kWh of a *real* battery is it worth? For every zone we compare the capped "
@@ -726,7 +727,11 @@ def build(n: dict) -> None:
         f"{ex['embodied_ratio_battery_over_headroom_median_phi0.5_cap1.2']:.0f}× (at least {ex['embodied_ratio_battery_over_headroom_min_phi0.5_cap1.2']:.0f}×) "
         "the carbon of the grid-only headroom that unlocks the same saving at +20%. Chaining the two closed forms predicts the LP exchange rate with log-R² "
         f"{ex['closed_form_X_r2_log']:.2f} and no optimiser. In 7 of 123 zones the daily spread never covers the losses, so a battery saves nothing while "
-        "flexible load still does. Batteries also earn grid-service revenue that this carbon-only comparison ignores.")
+        "flexible load still does. Batteries also earn grid-service revenue that this carbon-only comparison ignores. "
+        f"The rate is stable across years: at +20% headroom the median is {exy['X_median_2020_cap1.2']:.1f}, {exy['X_median_2021_cap1.2']:.1f} and "
+        f"{exy['X_median_2022_cap1.2']:.1f} kWh/kW for 2020-2022, zone rankings correlate at Spearman {exy['X_spearman_2020_2022_cap1.2']:.2f}-"
+        f"{exy['X_spearman_2021_2022_cap1.2']:.2f}, and last year's rate predicts this year's within 25% for "
+        f"{exy['X_prev_year_within_25pct_2021_cap1.2'] * 100:.0f}-{exy['X_prev_year_within_25pct_2022_cap1.2'] * 100:.0f}% of zones.")
     P.figure(FIG / "exchange_rate.png", "Storage exchange rate. Left: kWh of 4 h, 90%-efficient battery that saves as much carbon as the capped flexible load, per kW of mean load. Right: the closed-form daily spread law against the battery LP.")
 
     # ------------------------------------------------------------------ 8 LLM
