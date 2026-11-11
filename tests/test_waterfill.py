@@ -85,3 +85,12 @@ def test_capped_shift_is_a_lossless_battery(phi, cap):
     b = battery_shift(ci, energy_h=24 * phi, power=phi, round_trip_eff=1.0, cap=cap)
     # identical up to the boundary condition (empty backlog at start vs cyclic): O(1/days)
     assert b.baseline_g - b.optimised_g == pytest.approx(lp.baseline_g - lp.optimised_g, rel=0.01)
+
+
+def test_effective_horizon_and_saving_law():
+    from carbonshift.waterfill import effective_horizon, saving_law, saving_general
+    assert effective_horizon(0.5, 1.05, 24) == 240      # refill time s*phi/h = 24*0.5/0.05
+    assert effective_horizon(0.5, 1.5, 24) == 24        # h >= phi: the slack binds
+    assert effective_horizon(0.5, np.inf, 24) == 24
+    ci = 300 + 50 * np.sin(np.arange(24 * 30) * 2 * np.pi / 24)
+    assert saving_law(ci, 0.5, 2.0, 24) == pytest.approx(saving_general(ci, 0.5, 2.0, 24))

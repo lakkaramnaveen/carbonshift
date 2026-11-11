@@ -33,6 +33,10 @@ def numbers() -> dict:
     n["kept20"] = float(fs[(fs.phi == 0.5) & (fs.slack == 24) & np.isclose(fs.cap, 1.2)].retained_of_ideal.iloc[0]) * 100
     ds = pd.read_csv(RES / "diurnal_summary.csv", index_col=0)["value"]
     n.update(util=ds.mean_util_median * 100, head=ds.headroom_median_pct, kept_real=ds.kept_median_pct)
+    wf = pd.read_csv(RES / "waterfill_summary.csv", index_col=0)["value"]
+    vb = pd.read_csv(RES / "virtual_battery_summary.csv", index_col=0)["value"]
+    n.update(wf_save_r2=wf.saving_r2_finite_caps, wf_val_r2=wf.value_r2, vb_r2=vb.horizon_law_slack24_r2,
+             vb_lossless=vb["lossless_w0.7_raises_avg_pct"], vb_lossy=vb["eta90_w0.7_raises_avg_pct"])
     vs = pd.read_csv(RES / "variability_summary.csv", index_col=0)["value"]
     n.update(rho_std=vs.rho_daily_std_2022, rho_mean=vs.rho_mean_ci_2022, rho_cv=vs.rho_daily_cv_2022,
              k=vs.loglog_constant_k, e=vs.loglog_elasticity_shadow_vs_std)
@@ -88,9 +92,12 @@ def main() -> None:
         B(f"<b>Power caps bound the savings.</b> The ideal temporal saving needs the median facility to draw {n['peak']:.0f}x its mean power for an "
           f"hour. +20% headroom keeps {n['kept20']:.0f}% of the ideal; at real Google headroom (median utilisation {n['util']:.0f}%, +{n['head']:.0f}%) "
           f"about {n['kept_real']:.0f}% survives."),
-        B(f"<b>One statistic predicts the value of capacity.</b> By an affine-invariance property of the LP, only the absolute swing of carbon "
-          f"intensity matters, not its level. Across zones, value tracks daily std (Spearman {n['rho_std']:.2f}) far better than the mean "
-          f"({n['rho_mean']:.2f}) or the coefficient of variation ({n['rho_cv']:.2f}): value ≈ {n['k']:.1f}·σ<super>{n['e']:.2f}</super> kg CO2 per kW-year."),
+        B(f"<b>A unifying theory: capped flexible load is a lossless battery.</b> The LP is exactly a battery of energy slack × φ, discharge power φ "
+          "and charge power h, so the optimum is water-filling the cleanest hours. Closed forms follow, with no optimiser: the share of the saving kept depends only on "
+          f"headroom per unit of flexible load, h/φ (exact); saving ≈ φ·A·sinc(πφ/(φ+h)) for daily swing A (R² {n['wf_save_r2']:.2f} against the LP); and the value "
+          f"of a kW is a daily water-level area (R² {n['wf_val_r2']:.2f}), which is linear in the swing and blind to the mean intensity. It also explains why UPS batteries barely help, and why only "
+          f"losses stop a scheduler serving both average and marginal ledgers: a lossless battery on a blended signal harms {n['vb_lossless']:.0f}% of BAs, "
+          f"versus {n['vb_lossy']:.0f}% at 90% round trip."),
         B(f"<b>Build power, not servers.</b> One extra kW is worth {n['val20']:.0f} kg CO2/yr (median zone, +20% headroom). Grid-only electrical "
           f"headroom repays its embodied carbon within its life in {n['grid_ok']:.0f}% of zones; CPU servers bought to absorb shifted work, in only "
           f"{n['cpu_ok']:.0f}%. The ordering held in every one of 5,000 Monte Carlo draws."),
@@ -119,8 +126,8 @@ def main() -> None:
                   "telemetry, repeat the GPU study on data-centre accelerators with power capping, and design carbon-optimal headroom that weighs the "
                   "embodied carbon of the electrical plant against operational savings. My background in data-centre power equipment (UPS, "
                   "switchgear, generators) is what led to this facility-side view.", body),
-        Paragraph("Artifact: tested open-source code (66 tests), all data, an interactive web explorer, and a full paper (13 figures, 32 references). "
-                  "Every number above is generated from the result files. Available on request.", body),
+        Paragraph("Artifact: github.com/lakkaramnaveen/carbonshift. It includes tested open-source code (84 tests), all data, an interactive web explorer, a full paper and a "
+                  "workshop draft. Every number above is generated from the result files.", body),
     ]
     doc = SimpleDocTemplate(str(OUT), pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.5 * inch, bottomMargin=0.5 * inch,
                             title="Power Before Hours: research summary", author="Naveen Kumar Lakkaram")

@@ -52,6 +52,9 @@ def test_facility_and_battery(client):
     d = f.json()
     assert 0 < d["reduction_pct"] < d["ideal_reduction_pct"]
     assert len(d["week"]["ci"]) == 168 and max(d["week"]["draw"]) <= d["week"]["cap"] + 1e-6
+    assert d["law"]["peak_draw"] == 13.0 and d["law"]["virtual_battery_hours"] == 12.0 and d["law"]["effective_horizon_hours"] == 60
+    assert 0 < d["law"]["reduction_pct"] <= d["ideal_reduction_pct"] * 1.2
+    assert all(c["law_reduction_pct"] is not None for c in d["curve"])
     b = client.post("/api/battery", json={"zone": ZONE, "energy_minutes": 10, "reserve_pct": 0, "efficiency_pct": 90})
     assert b.status_code == 200 and 0 <= b.json()["reduction_pct"] < 2
 

@@ -122,3 +122,16 @@ def saving_general(ci: np.ndarray, phi: float, cap, slack: int = 24) -> float:
     """
     q = float(q_of(phi, cap))
     return float(phi * (np.mean(np.asarray(ci, dtype=float)[: len(ci) // slack * slack]) - lower_partial_mean(ci, q, slack)))
+
+
+def effective_horizon(phi: float, cap, slack: int) -> int:
+    """Planning horizon of the virtual battery (F22): the slack, or its refill time s*phi/h if longer."""
+    h = float(cap) - 1.0
+    if not np.isfinite(h) or h <= 0:
+        return int(slack)
+    return int(round(slack * max(1.0, phi / h)))
+
+
+def saving_law(ci: np.ndarray, phi: float, cap, slack: int = 24) -> float:
+    """Best closed-form estimate of the capped saving: water-filling over the effective horizon (no optimiser)."""
+    return saving_general(ci, phi, cap, effective_horizon(phi, cap, slack))

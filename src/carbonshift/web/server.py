@@ -51,6 +51,7 @@ from carbonshift.embodied import LIFETIME, per_kw, payback_years
 from carbonshift.facility import battery_shift, capped_shift
 from carbonshift.redundancy import installed_cap
 from carbonshift.temporal import shift_one_zone
+from carbonshift.waterfill import effective_horizon, saving_law
 
 log = logging.getLogger("carbonshift.web")
 
@@ -227,12 +228,13 @@ def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, we
     ideal = _capped(zone, phi, math.inf, slack)
     ideal_saving = ideal.baseline_g - ideal.optimised_g
     retained = (r.baseline_g - r.optimised_g) / ideal_saving * 100 if ideal_saving > 1e-9 else None
+    ci = carbon()[zone].to_numpy()
     curve = []
     for h in CURVE_HEADROOM_PCT:
         c = _capped(zone, phi, 1 + h / 100, slack)
         curve.append({"headroom_pct": h, "reduction_pct": _r(c.facility_reduction_pct),
+                      "law_reduction_pct": _r(saving_law(ci, phi, 1 + h / 100, slack) / c.baseline_g * 100) if h > 0 else 0.0,
                       "retained_pct": _r((c.baseline_g - c.optimised_g) / ideal_saving * 100, 1) if ideal_saving > 1e-9 else None})
-    ci = carbon()[zone].to_numpy()
     sl = slice(week * 168, week * 168 + 168)
     return {
         "baseline_g_per_kwh": _r(r.baseline_g), "optimised_g_per_kwh": _r(r.optimised_g),
@@ -240,6 +242,9 @@ def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, we
         "retained_of_ideal_pct": _r(retained, 1) if retained is not None else None,
         "saving_g_per_flex_kwh": _r(r.saving_per_flex_kwh),
         "uncapped_peak_draw": _r((1 - phi) + ideal.served.max()),
+        "law": {"reduction_pct": _r(saving_law(ci, phi, cap, slack) / r.baseline_g * 100) if headroom_pct > 0 else 0.0,
+                "peak_draw": _r(1 + slack * phi), "virtual_battery_hours": _r(slack * phi, 1),
+                "effective_horizon_hours": effective_horizon(phi, cap, slack) if headroom_pct > 0 else None},
         "curve": curve,
         "week": {"ci": [_r(v, 1) for v in ci[sl]], "draw": [_r((1 - phi) + v, 3) for v in r.served[sl]],
                  "cap": _r(cap, 3), "base": _r(1 - phi, 3)},

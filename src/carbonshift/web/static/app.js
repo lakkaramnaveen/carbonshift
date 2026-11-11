@@ -215,10 +215,13 @@ const runFacility = debounce(async () => {
     set("f-k-ret", r.retained_of_ideal_pct === null ? "–" : `${fmt(r.retained_of_ideal_pct, 0)}%`);
     set("f-k-ret-s", `with +${head}% headroom`);
     set("f-k-peak", `${fmt(r.uncapped_peak_draw)}×`);
+    set("f-k-vb", `${fmt(r.law.virtual_battery_hours, 0)} h`);
+    set("f-k-vb-s", r.law.effective_horizon_hours ? `lossless; plans ${hours(r.law.effective_horizon_hours)} ahead; law: −${fmt(r.law.reduction_pct)}%` : "lossless; no headroom to recharge");
     const cx = r.curve.map((c) => c.headroom_pct);
     lineChart($("f-curve"), {
       xs: cx, xTicks: [0, 50, 100, 150, 200, 300], xFmt: (v) => `+${v}%`, height: 200, label: "reduction vs headroom",
-      series: [{ ys: r.curve.map((c) => c.reduction_pct), cls: "s1", name: "reduction", dots: "f1", fmt: (v) => `${fmt(v)}%` }],
+      series: [{ ys: r.curve.map((c) => c.reduction_pct), cls: "s1", name: "optimiser", dots: "f1", fmt: (v) => `${fmt(v)}%` },
+               { ys: r.curve.map((c) => c.law_reduction_pct), cls: "s2", name: "closed-form law", fmt: (v) => `${fmt(v)}%` }],
       refY: { value: r.ideal_reduction_pct }, yFmt: (v) => `${fmt(v, 0)}%`,
       marker: { x: head, y: r.reduction_pct, cls: "f2" },
     });
