@@ -60,6 +60,9 @@ LLM_SUMMARY = ROOT / "results" / "llm_power_summary.csv"
 LLM_META = ROOT / "results" / "llm_power_meta.json"
 SITING = ROOT / "results" / "siting_per_region.csv"
 VARIABILITY = ROOT / "results" / "variability_summary.csv"
+HEDGE = ROOT / "results" / "hedge_frontier_per_ba.csv"
+HEDGE_OOS = ROOT / "results" / "hedge_oos_per_ba.csv"
+BATT_MARG = ROOT / "results" / "battery_marginal_per_ba.csv"
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("CARBONSHIFT_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 CORS_ORIGINS = [o.strip() for o in os.getenv("CARBONSHIFT_CORS_ORIGINS", "").split(",") if o.strip()]
@@ -167,6 +170,19 @@ class LLMIn(ZoneIn):
     batch: int = Field(ge=1, le=1024)
     million_tokens_per_day: float = Field(ge=0.001, le=1e6)
 
+
+
+class SignalIn(Strict):
+    ba: str = Field(max_length=16)
+    w_pct: int = Field(ge=0, le=100, multiple_of=10)
+
+    @field_validator("ba")
+    @classmethod
+    def _known_ba(cls, v: str) -> str:
+        t = signal_tables()
+        if t is None or v not in t["bas"]:
+            raise ValueError("unknown balancing authority")
+        return v
 
 
 class CapacityIn(ZoneIn):
@@ -279,6 +295,47 @@ def compute_capacity(zone: str, util_pct: int, topology: str, build: str, flex_p
 @lru_cache(maxsize=1)
 def siting_table() -> pd.DataFrame | None:
     return pd.read_csv(SITING) if SITING.exists() else None
+
+
+@lru_cache(maxsize=1)
+def signal_tables() -> dict | None:
+    """Precomputed F19/F20 results (scripts/hedge_experiments.py, scripts/battery_marginal_experiments.py)."""
+    if not (HEDGE.exists() and HEDGE_OOS.exists() and BATT_MARG.exists()):
+        return None
+    hedge, oos, batt = pd.read_csv(HEDGE), pd.read_csv(HEDGE_OOS), pd.read_csv(BATT_MARG)
+    bas = sorted(set(hedge.ba) & set(oos.ba) & set(batt.ba))
+    return {"hedge": hedge, "oos": oos, "batt": batt, "bas": frozenset(bas), "ba_list": bas}
+
+
+@lru_cache(maxsize=1)
+def signal_days() -> pd.DataFrame:
+    """Mean UTC day (24 h) of the average and marginal signal per BA, from the derived EIA-930 file."""
+    from carbonshift.eia930 import signals
+    s = signals()
+    return s.assign(h=s.utc.dt.hour).groupby(["ba", "h"])[["average", "marginal"]].mean()
+
+
+@lru_cache(maxsize=128)
+def compute_signal(ba: str, w_pct: int) -> dict:
+    t = signal_tables()
+    h = t["hedge"][t["hedge"].ba == ba].sort_values("w_avg")
+    o = t["oos"][t["oos"].ba == ba].sort_values("w_avg")
+    w = w_pct / 100
+    sel = h[np.isclose(h.w_avg, w)].iloc[0]
+    o0 = float(o[np.isclose(o.w_avg, 0)].marg_out_of_sample_g.iloc[0])
+    osel = o[np.isclose(o.w_avg, w)].iloc[0]
+    day = signal_days().loc[ba]
+    b = t["batt"][t["batt"].ba == ba]
+    return {
+        "w": [_r(x, 1) for x in h.w_avg],
+        "avg_share_pct": [_r(x * 100, 1) for x in h.avg_share],
+        "marg_share_pct": [_r(x * 100, 1) for x in h.marg_share],
+        "selected": {"avg_share_pct": _r(sel.avg_share * 100, 1), "marg_share_pct": _r(sel.marg_share * 100, 1),
+                     "marg_heldout_vs_marginal_only_pct": _r(osel.marg_out_of_sample_g / o0 * 100, 1) if abs(o0) > 1e-9 else None},
+        "day": {"hour": list(range(24)), "average": [_r(x, 0) for x in day.average], "marginal": [_r(x, 0) for x in day.marginal]},
+        "battery": [{"energy_minutes": int(round(r.energy_h * 60)), "dispatch_on": r.dispatch_on,
+                     "avg_red_pct": _r(r.avg_red_pct, 2), "marg_red_pct": _r(r.marg_red_pct, 2)} for r in b.itertuples()],
+    }
 
 
 def llm_table() -> pd.DataFrame | None:
@@ -439,6 +496,19 @@ def create_app() -> FastAPI:
     @app.post("/api/capacity")
     def capacity(body: CapacityIn):
         return run(compute_capacity, body.zone, body.utilization_pct, body.topology, body.build, body.flexible_pct)
+
+    @app.get("/api/signal")
+    def signal_meta():
+        t = signal_tables()
+        if t is None:
+            raise HTTPException(404, "signal results not available yet")
+        means = signal_days().groupby(level=0).mean()
+        bas = [{"code": b, "mean_average": _r(means.loc[b, "average"], 0), "mean_marginal": _r(means.loc[b, "marginal"], 0)} for b in t["ba_list"]]
+        return {"bas": bas, "weights_pct": list(range(0, 101, 10))}
+
+    @app.post("/api/signal")
+    def signal(body: SignalIn):
+        return run(compute_signal, body.ba, body.w_pct)
 
     @app.get("/api/siting")
     def siting():

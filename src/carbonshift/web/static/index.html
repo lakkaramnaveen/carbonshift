@@ -28,6 +28,7 @@
     <button role="tab" id="tab-llm" aria-controls="p-llm" aria-selected="false">LLM on GPU</button>
     <button role="tab" id="tab-capacity" aria-controls="p-capacity" aria-selected="false">Build or not?</button>
     <button role="tab" id="tab-siting" aria-controls="p-siting" aria-selected="false">Siting</button>
+    <button role="tab" id="tab-signal" aria-controls="p-signal" aria-selected="false">Which signal?</button>
   </nav>
 
   <!-- Temporal -->
@@ -198,8 +199,43 @@
     </div>
   </section>
 
+  <!-- Signal -->
+  <section class="panel" id="p-signal" role="tabpanel" aria-labelledby="tab-signal" hidden>
+    <div class="card controls">
+      <h2>Average or marginal carbon?</h2>
+      <p class="hint">Companies report <em>average</em> grid intensity, but moving load changes <em>marginal</em> emissions. Schedule on a blend of the two and see what each ledger keeps. US balancing authorities, EIA-930, 2022; half the load flexible, 24 h slack, +43% headroom.</p>
+      <div class="field"><label for="g-ba">Balancing authority</label><select id="g-ba"></select></div>
+      <div class="field"><label for="g-w">Weight on the average signal <output id="g-w-o"></output></label>
+        <input type="range" id="g-w" min="0" max="100" step="10" value="70"></div>
+      <p class="note">0% schedules on the marginal signal only; 100% on the average only. Pooled over 47 BAs, 70% keeps about four-fifths of both savings.</p>
+    </div>
+    <div class="results">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Average-ledger saving kept</div><div class="value" id="g-k-a">–</div><div class="sub">of the average-only optimum</div></div>
+        <div class="kpi"><div class="label">Marginal saving kept</div><div class="value" id="g-k-m">–</div><div class="sub">of the marginal-only optimum</div></div>
+        <div class="kpi"><div class="label">Marginal, on held-out days</div><div class="value" id="g-k-o">–</div><div class="sub">vs marginal-only plan, same test</div></div>
+      </div>
+      <div class="card">
+        <h2>What each ledger keeps as the weight changes (%)</h2>
+        <div class="legend"><span class="l1">Average-ledger saving</span><span class="l2">Marginal saving</span></div>
+        <div class="chart" id="g-chart"></div>
+      </div>
+      <div class="card">
+        <h2>Average day of each signal (g/kWh, UTC hour)</h2>
+        <div class="legend"><span class="l1">Average</span><span class="l2">Marginal</span></div>
+        <div class="chart" id="g-day"></div>
+      </div>
+      <div class="card">
+        <h2>Batteries cannot serve both ledgers</h2>
+        <p class="note">Emission cut from a battery behind the load (90% round trip), scored on each signal. Negative means the dispatch <em>raises</em> that ledger's emissions: every cycle loses energy, so a cycle the other signal chose is a net cost.</p>
+        <div class="table-wrap"><table id="g-batt"></table></div>
+      </div>
+      <p class="error" id="g-err" hidden></p>
+    </div>
+  </section>
+
   <footer>
-    Carbon data © Electricity Maps (ODbL), via the EuroSys'24 artifact. Upper bounds assume perfect forecasts and average carbon intensity. Nothing you enter is stored.
+    Carbon data © Electricity Maps (ODbL), via the EuroSys'24 artifact. Upper bounds assume perfect forecasts and average carbon intensity (except the “Which signal?” tab). US signals derived from EIA-930 (public domain). Nothing you enter is stored.
   </footer>
 </div>
 </body>

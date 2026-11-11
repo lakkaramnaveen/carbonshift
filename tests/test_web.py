@@ -154,3 +154,34 @@ def test_siting_endpoint(client):
     if r.status_code == 200:
         rows = r.json()["rows"]
         assert rows and {"zone", "temporal_kg_per_kw_yr", "spatial_100ms_kg_per_kw_yr"} <= rows[0].keys()
+
+
+@pytest.fixture()
+def fake_signal(monkeypatch):
+    """Made-up hedge / battery tables for one fictitious balancing authority 'ZZZ'."""
+    import numpy as np
+    w = np.round(np.linspace(0, 1, 11), 1)
+    hedge = pd.DataFrame({"ba": "ZZZ", "w_avg": w, "avg_share": w, "marg_share": 1 - w ** 2})
+    oos = pd.DataFrame({"ba": "ZZZ", "w_avg": w, "marg_out_of_sample_g": 10 * (1 - w)})
+    batt = pd.DataFrame({"ba": "ZZZ", "energy_h": [1 / 6, 1 / 6], "dispatch_on": ["average", "marginal"],
+                         "avg_red_pct": [0.1, -0.3], "marg_red_pct": [-0.05, 1.0]})
+    tables = {"hedge": hedge, "oos": oos, "batt": batt, "bas": frozenset({"ZZZ"}), "ba_list": ["ZZZ"]}
+    day = pd.DataFrame({"ba": "ZZZ", "h": range(24), "average": 400.0, "marginal": 600.0}).set_index(["ba", "h"])
+    monkeypatch.setattr(server, "signal_tables", lambda: tables)
+    monkeypatch.setattr(server, "signal_days", lambda: day)
+    server.compute_signal.cache_clear()
+    yield
+    server.compute_signal.cache_clear()
+
+
+def test_signal_endpoint(client, fake_signal):
+    assert client.get("/api/signal").json()["bas"] == [{"code": "ZZZ", "mean_average": 400.0, "mean_marginal": 600.0}]
+    d = client.post("/api/signal", json={"ba": "ZZZ", "w_pct": 70}).json()
+    assert d["selected"]["avg_share_pct"] == 70.0
+    assert d["selected"]["marg_share_pct"] == pytest.approx(51.0)
+    assert d["selected"]["marg_heldout_vs_marginal_only_pct"] == pytest.approx(30.0)
+    assert len(d["w"]) == 11 and len(d["day"]["average"]) == 24
+    assert {b["dispatch_on"] for b in d["battery"]} == {"average", "marginal"}
+    for bad in ({"ba": "NOPE", "w_pct": 50}, {"ba": "ZZZ", "w_pct": 55}, {"ba": "ZZZ", "w_pct": 110},
+                {"ba": "ZZZ", "w_pct": 50, "x": 1}, {"ba": "Z" * 40, "w_pct": 50}):
+        assert client.post("/api/signal", json=bad).status_code == 422

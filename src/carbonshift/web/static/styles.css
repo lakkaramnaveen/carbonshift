@@ -13,7 +13,7 @@
   --series-3: #1baf7a;
   --series-4: #e87ba4;
   --grid: #e9e8e4;
-  --good: #1a7f37;
+  --good: #1a7f37; --bad: #b42318;
   --radius: 12px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 2px 8px rgb(0 0 0 / 0.04);
 }
@@ -23,7 +23,7 @@
     --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
     --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86; --accent: #3987e5;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #d55181;
-    --grid: #2b2b28; --good: #4ac26b;
+    --grid: #2b2b28; --good: #4ac26b; --bad: #ff7b72;
     --shadow: none;
   }
 }
@@ -32,7 +32,7 @@
   --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
   --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86; --accent: #3987e5;
   --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #d55181;
-  --grid: #2b2b28; --good: #4ac26b;
+  --grid: #2b2b28; --good: #4ac26b; --bad: #ff7b72;
   --shadow: none;
 }
 
@@ -143,3 +143,4 @@ footer { color: var(--text-3); font-size: 12.5px; padding: 28px 0 40px; }
   .kpi .value { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+td.neg { color: var(--bad); font-weight: 600; }

@@ -363,6 +363,63 @@ function renderSiting() {
   hbars($("s-chart"), rows, "label", [{ key, cls: "f1" }, { key: "temporal_kg_per_kw_yr", cls: "f2" }]);
 }
 
+// ------------------------------------------------------------------ signal (average vs marginal)
+let SIGNAL = null;
+async function loadSignal() {
+  try { SIGNAL = await api("gm", "/api/signal"); }
+  catch (e) { $("g-err").hidden = false; set("g-err", `Signal results unavailable: ${e.message}`); return; }
+  const sel = $("g-ba");
+  for (const b of SIGNAL.bas) {
+    const o = document.createElement("option");
+    o.value = b.code; o.textContent = `${b.code} (avg ${b.mean_average}, marginal ${b.mean_marginal} g/kWh)`;
+    sel.appendChild(o);
+  }
+  if (SIGNAL.bas.some((b) => b.code === "PJM")) sel.value = "PJM";
+  runSignal();
+}
+
+const pct = (v) => (v === null ? "–" : `${fmt(v, 0)}%`);
+const runSignal = debounce(async () => {
+  if (!SIGNAL) return;
+  const w = +$("g-w").value;
+  set("g-w-o", `${w}%`);
+  try {
+    const r = await api("g", "/api/signal", { ba: $("g-ba").value, w_pct: w });
+    $("g-err").hidden = true;
+    set("g-k-a", pct(r.selected.avg_share_pct));
+    set("g-k-m", pct(r.selected.marg_share_pct));
+    set("g-k-o", pct(r.selected.marg_heldout_vs_marginal_only_pct));
+    const xs = r.w.map((v) => Math.round(v * 100));
+    const lo = Math.min(0, ...r.avg_share_pct, ...r.marg_share_pct);
+    lineChart($("g-chart"), {
+      xs, xTicks: [0, 20, 40, 60, 80, 100], xFmt: (v) => `${v}%`, yMin: lo < 0 ? Math.min(-100, Math.floor(lo / 100) * 100) : 0, yMax: 100,
+      label: "share of each optimum kept versus weight on the average signal",
+      series: [{ ys: r.avg_share_pct, cls: "s1", name: "average", dots: "f1", fmt: (v) => pct(v) },
+               { ys: r.marg_share_pct, cls: "s2", name: "marginal", dots: "f2", fmt: (v) => pct(v) }],
+      refY: { value: 0 }, marker: { x: w, y: r.selected.marg_share_pct, cls: "f2" },
+    });
+    lineChart($("g-day"), {
+      xs: r.day.hour, xTicks: [0, 6, 12, 18, 23], xFmt: (h) => `${h}:00`, label: "average day of both signals",
+      series: [{ ys: r.day.average, cls: "s1", name: "average", fmt: (v) => fmt(v, 0) },
+               { ys: r.day.marginal, cls: "s2", name: "marginal", fmt: (v) => fmt(v, 0) }],
+    });
+    const t = $("g-batt");
+    t.replaceChildren();
+    const head = t.createTHead().insertRow();
+    for (const c of ["Battery", "Dispatched on", "Average-ledger cut", "Marginal cut"]) {
+      const th = document.createElement("th"); th.textContent = c; head.appendChild(th);
+    }
+    const body = t.createTBody();
+    for (const b of r.battery) {
+      const row = body.insertRow();
+      const size = b.energy_minutes < 60 ? `${b.energy_minutes} min` : `${b.energy_minutes / 60} h`;
+      for (const [v, neg] of [[size], [b.dispatch_on], [`${fmt(b.avg_red_pct, 2)}%`, b.avg_red_pct < 0], [`${fmt(b.marg_red_pct, 2)}%`, b.marg_red_pct < 0]]) {
+        const td = row.insertCell(); td.textContent = v; if (neg) td.className = "neg";
+      }
+    }
+  } catch (e) { if (e.name !== "AbortError") { $("g-err").hidden = false; set("g-err", `Error: ${e.message}`); } }
+}, 150);
+
 // ------------------------------------------------------------------ tabs, theme, boot
 function setupTabs() {
   const tabs = [...document.querySelectorAll("nav.tabs button")];
@@ -426,8 +483,10 @@ async function boot() {
   for (const id of ["c-util", "c-flex"]) $(id).addEventListener("input", runCapacity);
   for (const id of ["c-topo", "c-build"]) $(id).addEventListener("change", runCapacity);
   for (const id of ["s-lat", "s-sort"]) $(id).addEventListener("change", renderSiting);
+  $("g-w").addEventListener("input", runSignal);
+  $("g-ba").addEventListener("change", runSignal);
   runTemporal(); runFacility(); runBattery(); runCapacity();
-  loadLLM(); loadSiting();
+  loadLLM(); loadSiting(); loadSignal();
 }
 
 document.addEventListener("DOMContentLoaded", boot);

@@ -354,7 +354,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (72 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (73 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
