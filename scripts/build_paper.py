@@ -673,6 +673,35 @@ def build(n: dict) -> None:
         "For migratable work, headroom in clean regions is the binding resource; temporal flexibility matters mainly for work that cannot move.")
 
     # ------------------------------------------------------------------ 6 redundancy
+    cy = pd.read_csv(RES / "curtailment_years_summary.csv", index_col=0)["value"]
+    sc = pd.read_csv(RES / "curtailment_supply_curve.csv", index_col=0)["value"]
+    cf = pd.read_csv(RES / "curtailment_fleet.csv")
+    cf = cf[(cf.marginal == "gas_constant") & (cf.year == 2022)]
+    cg = lambda cap, strat, p, col="saving_t": float(cf[(cf.cap == cap) & (cf.strategy == strat) & (cf.fleet_mw == p)][col].iloc[0])  # noqa: E731
+    P.h("5.8 When does carbon-aware computing saturate?", 2)
+    P.p(
+        "All results so far, like the literature, treat the grid signal as exogenous. That fails as data-centre load grows. We first asked whether a herd "
+        "of carbon-aware facilities could raise the marginal emission rate by climbing the merit order. Quadratic emission supply curves fitted per U.S. BA "
+        f"and season ({sc['supply_ba_seasons']:.0f} fits, EIA-930) show no consistent slope: the marginal rate changes by a median {sc['supply_median_abs_change_p10_p90'] * 100:.1f}% "
+        f"between low- and high-output hours and rises in only {sc['supply_share_rising'] * 100:.0f}% of cases. What *is* finite is curtailed renewable energy, the one "
+        "supply that is zero-carbon at the margin. We model a new fleet of mean load P with hourly cost m·max(0, L_t − C_t) (C_t curtailed MWh, m = 490 g/kWh "
+        "gas margin), using CAISO's public 5-minute production and curtailment data for 2021-2024 "
+        f"({cy['curtailed_twh_2021']:.1f}, {cy['curtailed_twh_2022']:.1f}, {cy['curtailed_twh_2023']:.1f} and {cy['curtailed_twh_2024']:.1f} TWh curtailed). A coordinated fleet "
+        "solves the convex problem as an LP. A herd of facilities, each optimising alone on an exogenous signal, is scored on the same cost.")
+    P.p(
+        f"**Saturation.** With +20% headroom the coordinated saving per flexible kWh falls from {cg(1.2, 'coordinated', 100, 'saving_g_per_flex_kwh'):.0f} g at 0.1 GW to "
+        f"{cg(1.2, 'coordinated', 1000, 'saving_g_per_flex_kwh'):.0f} g at 1 GW and to zero near 8 GW, where the fleet absorbs nearly all curtailment just by running. "
+        "Total avoided emissions are hump-shaped in fleet size and peak at 0.5-2 GW in every year. **Herding.** The uncapped schedule, the paper-style "
+        "upper bound, puts all flexible work into the single cleanest hour (a 13× peak). From 0.5-1 GW upward the herd overflows that hour's curtailment and "
+        f"abandons the curtailed hours it would have used anyway, *raising* emissions by up to {-cy['herd_worst_kt_2022_capinf']:.0f} kt/yr in 2022 "
+        f"({-cy['herd_worst_kt_2024_capinf']:.0f} kt in 2024). With a +20% or +50% cap, the uncoordinated herd achieves "
+        f"{min(cy[f'herd_min_share_of_coord_{y}_cap{c}'] for y in (2021, 2022, 2023, 2024) for c in (1.2, 1.5)) * 100:.0f}-100% of the coordinated optimum in "
+        "every year. The facility power cap, which limits one site's saving (Sec. 4), is what keeps a fleet of carbon-aware sites safe. Daily water-filling "
+        f"against curtailment predicts the coordinated absorption within 5% (ratio {min(cy[f'closed_form_over_lp_min_{y}'] for y in (2021, 2022, 2023, 2024)):.2f}-"
+        f"{max(cy[f'closed_form_over_lp_max_{y}'] for y in (2021, 2022, 2023, 2024)):.3f}). With an hour-of-day marginal signal in place of the curtailment model, "
+        "savings never saturate, which is an artefact: an hourly factor does not know how much clean energy is left.")
+    P.figure(FIG / "curtailment_fleet.png", "A new flexible fleet on CAISO's 2022 grid. Left: avoided emissions versus a run-on-arrival fleet; uncoordinated facilities (herd) backfire without a power cap. Right: share of fleet energy served by curtailed renewables, with the daily water-filling formula.")
+
     P.h("6 The Redundancy Dividend")
     P.p(
         "Tier-rated facilities already own idle electrical capacity. Flex [3] showed that this reserve can host software-redundant work and be reclaimed "

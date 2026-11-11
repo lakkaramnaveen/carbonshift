@@ -325,6 +325,32 @@ The exchange rate inherits the homogeneity theorem: X / (24φ) = κ_zone × rete
 
 Caveats: embodied factors are LFP 54-69 kg CO2eq/kWh (secondary source) against grid-only headroom (transformer + switchgear, 18-38 kg/kW); batteries also sell grid services this comparison ignores, and their shorter life (about 15 years vs 25) would widen the gap further.
 
+## 5c. Beyond one facility: when carbon-aware computing saturates
+
+Every result above, and the literature it builds on, treats the grid signal as fixed: one more kWh in a clean hour costs that hour's intensity, however many kWh arrive. That cannot hold as data-centre load grows.
+
+**First check: can a herd push up the marginal rate?** I fitted an emissions supply curve, E = a + b·F + c·F², to each U.S. balancing authority and season (EIA-930 2022, 44 BAs, 176 BA-seasons; F = fossil output). The marginal rate dE/dF changes by a median of only 6.6% between low-output and high-output hours (10th vs 90th percentile), and it rises in only 46% of cases. Fossil fleets have no consistent upward slope, so a herd cannot defeat itself by climbing the merit order.
+
+**What is finite is curtailment.** The one supply that is truly zero-carbon at the margin is renewable energy that would otherwise be thrown away. A new fleet of mean load P drawing L_t in hour t emits m·max(0, L_t − C_t), where C_t is the energy curtailed that hour and m = 490 g/kWh for the gas-fired margin. This cost is convex, so a coordinated fleet solves an LP. A *herd* of facilities, each optimising alone on an exogenous signal (average intensity, or 'free when curtailed'), is scored on the same cost. Data: CAISO 5-minute production and curtailment data for 2021-2024 (1.5, 2.4, 2.7 and 3.4 TWh curtailed). Half of the load is flexible, with 24 h slack.
+
+**Finding 19: carbon-aware shifting saturates at about a gigawatt in California, and without a power cap herding makes it backfire.**
+
+| CAISO 2022, new fleet of mean load | 0.1 GW | 0.5 GW | 1 GW | 2 GW | 4 GW | 8 GW |
+|---|---|---|---|---|---|---|
+| Saving per flexible kWh, coordinated, +20% cap (g) | 51 | 23 | 15 | 8 | 2 | 0 |
+| Avoided per year, coordinated, uncapped (kt CO2) | 96 | 229 | 316 | 273 | 57 | 0 |
+| Avoided per year, herd, uncapped (kt CO2) | 26 | −2 | −59 | −120 | −135 | −41 |
+| Avoided per year, herd = coordinated, +20% cap (kt CO2) | 22 | 50 | 66 | 70 | 32 | 0 |
+
+1. **Saturation.** Per flexible kWh, the saving falls by two-thirds between 0.1 and 1 GW and reaches zero near 8 GW. At that size the fleet absorbs nearly all curtailment just by running, so carbon-awareness adds nothing. Total avoided emissions are hump-shaped in fleet size and peak at 0.5-2 GW in every year (2021: 38 kt at +20% headroom; 2024: 106 kt). For scale, data centres used 4.4% of U.S. electricity in 2023 (LBNL); the same share of CAISO's 25.7 GW mean load is about 1.1 GW.
+2. **Uncapped herding backfires.** The uncapped schedule is the paper-style upper bound. Each facility puts its flexible work into the single cleanest hour, a 13× peak (F21). The herd overflows that hour's curtailment and abandons the curtailed hours it would have used by running on arrival. From 0.5 GW (2021-2023) or 1 GW (2024) upward it raises emissions, by up to 71 kt (2021), 135 kt (2022), 120 kt (2023) and 198 kt (2024) per year.
+3. **A power cap is an anti-herding device.** With +20% or +50% headroom, the uncoordinated herd achieves 97-100% of the coordinated optimum at every fleet size in all four years. The constraint that limits one facility's saving (Section 3) is what keeps a fleet of them safe. This is not a theorem: a made-up case in the tests shows a capped herd can still overflow small, scattered curtailment, though far less than an uncapped one.
+4. **The theory still holds.** Daily water-filling against curtailment, absorbed = min(Σ min(C_t, cap), Σ min(C_t, 1−φ) + 24φ) per day, matches the coordinated LP within 5% (ratio 0.95-1.003 in all 84 cases).
+
+*Sensitivity.* With EIA-930's CISO season × hour marginal factors in place of a constant margin, savings no longer saturate, and the coordinated saving even rises with fleet size. That is exactly the artefact of treating the signal as exogenous: an hour-of-day factor does not know how much clean energy is left. The uncapped herd still captures only 4-26% of the coordinated saving, against 45-72% with a cap.
+
+*Limitations.* The margin is a constant gas rate; imports, hydro and storage dispatch would also respond to new load. Curtailment is taken as observed, though a fleet that shows up would change future curtailment and solar build-out. The fleet is a single new load at CAISO scale, with no transmission limits inside CAISO.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.

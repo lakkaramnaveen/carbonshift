@@ -44,11 +44,12 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
 
-**Further findings** (F11–F23 in the log):
+**Further findings** (F11–F24 in the log):
 
 - **A closed-form law replaces the LP (F21).** With 24 h slack, flexible work water-fills each day's cleanest hours. The share of the ideal saving kept depends only on headroom per unit of flexible load, h/φ (an exact theorem). The saving is φ·A·sinc(πφ/(φ+h)), where A is the daily swing (R² 0.968 against 4,680 LP solves). The value of +1 kW is a 'water-level' area (R² 0.981 against LP shadow prices). This derives the 13× peak, the headroom curve and the swing law from first principles.
 - **Flexible load under a cap *is* a lossless battery (F22)**, with energy s·φ, discharge power φ and charge power h, which is exact up to boundary terms. It explains why a 10-minute UPS is negligible (1/72 of the virtual energy, plus losses), why tight caps plan beyond the slack (horizon s·φ/h), and why blending signals works for load but not for real batteries: a *lossless* battery blends harmlessly in all 48 BAs.
 - **The storage exchange rate (F23).** Priced against a real 4 h, 90%-efficient battery, a half-flexible facility with +20% headroom is worth a median 4.3 kWh of battery per kW of load (11 kWh uncapped), and building that battery would cost 8-55× more embodied carbon than the headroom (16× or more at +20%). A closed-form spread law gives the battery side (R² 0.993).
+- **Carbon-aware computing saturates, and power caps stop herding (F24).** Against real CAISO curtailment (2021-2024), the value of carbon-awareness peaks when a new flexible fleet reaches about 0.5-2 GW and vanishes near 8 GW, because only curtailed renewables are free at the margin. Without a power cap, uncoordinated carbon-aware facilities herd into the same hour and *raise* emissions by up to 198 kt/yr; with a +20% cap the herd matches the coordinated optimum (97-100%).
 - **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
 - **Forecast error** (5–15% MAPE) and power caps compound almost independently.
 - **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
@@ -99,6 +100,7 @@ src/carbonshift/
   google_power.py      Google PowerData2019 loader (real utilisation and load shapes)
   eia930.py            EIA-930 average and marginal (Siler-Evans) emission signals
   waterfill.py         closed-form water-filling laws (sinc saving, water-level value, homogeneity, peak)
+  curtailment.py       fleet-scale model: curtailed renewables are free, herd vs coordinated fleet, CAISO loader
   exchange.py          storage exchange rate: daily spread law for real batteries, kWh per kW of flexibility
   hedge.py             average-vs-marginal Pareto frontier via blended objectives
   llm_batching.py      static vs carbon-aware batching under a latency budget (Lagrangian, LP-checked)
@@ -123,12 +125,13 @@ scripts/
   battery_marginal_experiments.py  UPS batteries under marginal signals + split-half noise check
   virtual_battery_experiments.py  capped shifting = lossless battery: equivalence, horizon law, blending
   waterfill_experiments.py     test the closed-form laws against the LP
+  curtailment_experiments.py   saturation and herding of a growing fleet against CAISO curtailment
   exchange_experiments.py      flexibility vs real 4 h batteries: exchange rate and embodied carbon
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
   build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
   build_workshop_battery.py    generate the second workshop paper (virtual-battery theory)
-tests/          88 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          95 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -139,7 +142,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 88 tests, ~3 s
+.venv/bin/python -m pytest                              # 95 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min
