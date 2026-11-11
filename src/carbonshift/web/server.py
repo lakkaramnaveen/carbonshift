@@ -51,6 +51,7 @@ from carbonshift.embodied import LIFETIME, per_kw, payback_years
 from carbonshift.facility import battery_shift, capped_shift
 from carbonshift.redundancy import installed_cap
 from carbonshift.temporal import shift_one_zone
+from carbonshift.exchange import exchange_rate, spread_saving_per_kwh
 from carbonshift.waterfill import effective_horizon, saving_law
 
 log = logging.getLogger("carbonshift.web")
@@ -220,6 +221,13 @@ def _capped(zone: str, phi: float, cap: float, slack: int):
     return capped_shift(carbon()[zone].to_numpy(), phi, cap, slack)
 
 
+def _battery_equivalent(ci, saving_g: float) -> dict:
+    """Equal-carbon real battery (4 h, 90% round trip) per kW of mean load, via the daily spread law (F23)."""
+    b = spread_saving_per_kwh(ci, 4.0, 0.90)
+    x = exchange_rate(saving_g, b)
+    return {"battery_equivalent_kwh": _r(x, 1) if math.isfinite(x) else None, "battery_saves_nothing": b <= 0 and saving_g > 0}
+
+
 @lru_cache(maxsize=512)
 def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, week: int) -> dict:
     phi = flex_pct / 100
@@ -244,7 +252,8 @@ def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, we
         "uncapped_peak_draw": _r((1 - phi) + ideal.served.max()),
         "law": {"reduction_pct": _r(saving_law(ci, phi, cap, slack) / r.baseline_g * 100) if headroom_pct > 0 else 0.0,
                 "peak_draw": _r(1 + slack * phi), "virtual_battery_hours": _r(slack * phi, 1),
-                "effective_horizon_hours": effective_horizon(phi, cap, slack) if headroom_pct > 0 else None},
+                "effective_horizon_hours": effective_horizon(phi, cap, slack) if headroom_pct > 0 else None,
+                **_battery_equivalent(ci, r.baseline_g - r.optimised_g)},
         "curve": curve,
         "week": {"ci": [_r(v, 1) for v in ci[sl]], "draw": [_r((1 - phi) + v, 3) for v in r.served[sl]],
                  "cap": _r(cap, 3), "base": _r(1 - phi, 3)},

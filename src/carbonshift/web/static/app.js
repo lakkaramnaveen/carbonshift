@@ -217,6 +217,8 @@ const runFacility = debounce(async () => {
     set("f-k-peak", `${fmt(r.uncapped_peak_draw)}×`);
     set("f-k-vb", `${fmt(r.law.virtual_battery_hours, 0)} h`);
     set("f-k-vb-s", r.law.effective_horizon_hours ? `lossless; plans ${hours(r.law.effective_horizon_hours)} ahead; law: −${fmt(r.law.reduction_pct)}%` : "lossless; no headroom to recharge");
+    set("f-k-bx", r.law.battery_saves_nothing ? "none" : r.law.battery_equivalent_kwh == null ? "–" : `${fmt(r.law.battery_equivalent_kwh)} kWh`);
+    set("f-k-bx-s", r.law.battery_saves_nothing ? "spread never covers a battery's losses here" : "per kW of load: 4 h Li-ion, 90% round trip");
     const cx = r.curve.map((c) => c.headroom_pct);
     lineChart($("f-curve"), {
       xs: cx, xTicks: [0, 50, 100, 150, 200, 300], xFmt: (v) => `+${v}%`, height: 200, label: "reduction vs headroom",
