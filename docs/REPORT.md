@@ -252,7 +252,18 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 | US, real (1/0.70) | 5.1% | 13.4% | 14.1% | +0.7 pp |
 | US, unlimited | 9.2% | 28.1% | 34.8% | +6.7 pp |
 
-**Finding 13: under real power caps, the two flexibilities compete for the same headroom.** Migration fills the clean regions' spare capacity, which leaves no room there for time shifting. With Google-real headroom, temporal shifting keeps only 14-14% of its standalone value once migration is allowed; with unlimited capacity it still adds 3-7 pp. For a cloud whose work can migrate, headroom in clean regions is the binding resource, and investing in temporal flexibility pays off mainly for work that cannot move.
+**Finding 13: under real power caps, the two flexibilities compete for the same headroom.** Migration fills the clean regions' spare capacity, which leaves no room there for time shifting. With Google-real headroom, temporal shifting keeps only 14-15% of its standalone value once migration is allowed; with unlimited capacity it still adds 3-7 pp. For a cloud whose work can migrate, headroom in clean regions is the binding resource, and investing in temporal flexibility pays off mainly for work that cannot move.
+
+**Can one schedule serve both signals?** Finding 12 leaves an operator who reports average emissions but wants to cut marginal ones with a dilemma. I scheduled each BA on the blend w × average + (1 − w) × marginal and scored the result on both signals (`src/carbonshift/hedge.py`; same cap and slack as above). Since the LP is linear, sweeping w traces the Pareto frontier.
+
+| Weight on average, w | 0 | 0.3 | 0.5 | 0.7 | 0.9 | 1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Share of average optimum kept | 6% | 38% | 58% | **78%** | 96% | 100% |
+| Share of marginal optimum kept | 100% | 98% | 92% | **79%** | 46% | 7% |
+
+**Finding 14: hedging is nearly free.** The frontier is strongly concave. Each pure schedule gets 6-7% of the other signal's saving and makes it worse in 43-47% of BAs, but a small weight on the other signal recovers much of it: w = 0.9 gives up 4% of the average saving to lift the marginal one from 7% to 46%. Per BA, the best balanced weight keeps a median 73% of both optima. The reason is that each signal leaves many hours nearly tied, and the other signal breaks those ties at little cost. Schedulers should not pick one signal; they should blend them.
+
+![Hedging frontier](../figures/hedge_frontier.png)
 
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
@@ -291,7 +302,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 66 tests
+.venv/bin/python -m pytest              # 70 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

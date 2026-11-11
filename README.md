@@ -44,12 +44,12 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
 
-**Further findings** (F11–F18 in the log):
+**Further findings** (F11–F19 in the log):
 
 - **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
 - **Forecast error** (5–15% MAPE) and power caps compound almost independently.
 - **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
-- **Marginal signals** (EIA-930, 48 US balancing authorities): a schedule optimised on the *average* signal captures only 7% of the marginal-optimal saving and *raises* marginal emissions in 44% of BAs.
+- **Marginal signals** (EIA-930, 48 US balancing authorities): a schedule optimised on the *average* signal captures only 7% of the marginal-optimal saving and *raises* marginal emissions in 44% of BAs. **Blending the two signals is nearly free:** scheduling on 0.7·average + 0.3·marginal keeps 78% of the average and 79% of the marginal optimum (F19).
 - **Siting.** Spatial and temporal flexibility want capacity in opposite places (rank correlation −0.39 to −0.15 across 32 GCP regions), and under real per-region caps they compete for the same headroom: temporal shifting adds under 1 pp on top of migration.
 - **Carbon-aware LLM batching** adds only 1.6–4.8% over static batching at the efficient size, which already cuts CO₂ 41–71% versus batch 1.
 - **Uncertainty.** "Build power, not servers" holds in 100% of 5,000 Monte Carlo draws over EPD ranges.
@@ -95,6 +95,7 @@ src/carbonshift/
   forecast.py          MAPE-calibrated AR(1) forecast errors and the regret they cause
   google_power.py      Google PowerData2019 loader (real utilisation and load shapes)
   eia930.py            EIA-930 average and marginal (Siler-Evans) emission signals
+  hedge.py             average-vs-marginal Pareto frontier via blended objectives
   llm_batching.py      static vs carbon-aware batching under a latency budget (Lagrangian, LP-checked)
   power.py             sudo-free Apple Silicon power sampling via macmon
   plotting.py          shared figure style (colour-blind-validated palette)
@@ -113,9 +114,10 @@ scripts/
   embodied_uncertainty.py      Monte Carlo over embodied-carbon factors
   marginal_experiments.py      average vs marginal signals (EIA-930)
   joint_experiments.py         spatial + temporal shifting under per-region caps
+  hedge_experiments.py         blend average and marginal signals (Pareto frontier)
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
-tests/          66 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          70 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -126,7 +128,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 66 tests, ~3 s
+.venv/bin/python -m pytest                              # 70 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min

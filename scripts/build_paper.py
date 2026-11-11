@@ -354,7 +354,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (66 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (70 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
@@ -584,6 +584,16 @@ def build(n: dict) -> None:
         "despite a moderate average. The marginal factors are coarse (season × hour bins), so part of their larger swing is estimation noise.")
     P.figure(FIG / "marginal_signals.png", "Under marginal signals (EIA-930, 2022): capacity value versus signal swing (left); average versus marginal mean intensity per BA (right).")
 
+    hs = pd.read_csv(RES / "hedge_summary.csv", index_col=0)["value"]
+    P.p(
+        "**Hedging between the signals.** An operator who reports average emissions but wants to cut marginal ones need not choose. Scheduling on "
+        "w·average + (1 − w)·marginal and scoring on both traces the Pareto frontier of the linear program. It is strongly concave: pure schedules keep "
+        f"{hs['pooled_marg_share_w1.0'] * 100:.0f}% and {hs['pooled_avg_share_w0.0'] * 100:.0f}% of the other signal's optimum, but w = 0.7 keeps "
+        f"{hs['pooled_avg_share_w0.7'] * 100:.0f}% of the average and {hs['pooled_marg_share_w0.7'] * 100:.0f}% of the marginal optimum (pooled over "
+        f"{hs['bas']:.0f} BAs). Per BA, the best balanced weight keeps a median {hs['balanced_worst_share_median'] * 100:.0f}% of both. Each signal leaves many "
+        "hours nearly tied, and the other signal breaks those ties at little cost, so blending signals dominates choosing one.")
+    P.figure(FIG / "hedge_frontier.png", "Average-vs-marginal Pareto frontier per BA as the weight on the average signal goes from 0 to 1 (left); best achievable share of both optima per BA (right).")
+
     jt = pd.read_csv(RES / "joint_summary.csv").set_index(["group", "cap"])
     jv = lambda g, c, col: float(jt.loc[(g, c), col])
     real, unl = "real (1/0.70)", "unlimited"
@@ -704,7 +714,7 @@ def build(n: dict) -> None:
     # ------------------------------------------------------------------ 10 discussion
     P.h("10 Discussion, Limitations and Threats to Validity")
     P.bullets([
-        "**Average vs. marginal intensity.** The main results use average intensity, like [1]. Sec. 5.6 shows that the structural findings survive a marginal signal for US BAs, but average-optimised schedules capture little marginal reduction; marginal estimates outside the US were not available.",
+        "**Average vs. marginal intensity.** The main results use average intensity, like [1]. Sec. 5.6 shows that the structural findings survive a marginal signal for US BAs, but average-optimised schedules capture little marginal reduction, which a blended objective largely recovers; marginal estimates outside the US were not available.",
         "**Forecasts.** The main results assume perfect forecasts and are upper bounds. Sec. 4.3 shows that synthetic AR(1) errors at CarbonCast-level MAPE cost 1-3% of emissions and leave the cap penalty nearly unchanged; real forecast errors may be structured differently.",
         "**Fluid flexible work.** Long jobs are not infinitely divisible, which lowers savings below our bounds; migration and checkpoint overheads are ignored. "
         "Real diurnal load shapes change results by at most 6% (Sec. 4.4).",
