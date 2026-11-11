@@ -301,6 +301,16 @@ The headroom curve (Finding 1), the 13x peak, the value of a kW and the swing la
 
 ![Water-filling law](../figures/waterfill_law.png)
 
+**Finding 17: flexible load under a power cap *is* a lossless battery.** Write the backlog of deferred work as B = arrivals − served. The cumulative-flow constraints then read 0 ≤ B ≤ s·φ (nothing waits longer than the slack) and −h ≤ ΔB ≤ φ (you cannot defer more than arrives, or catch up faster than the headroom allows). That is a battery of energy **s·φ**, discharge power **φ**, charge power **h** and **100% efficiency**: deferring work "discharges" it, catching up "recharges" it. The LPs agree to a median 0.14% on real grids; they differ only in their boundary condition. Three earlier puzzles follow:
+
+| Puzzle | Explanation from the virtual battery |
+|---|---|
+| Fixed-block water-filling underestimates at tight caps (−38% at +5% headroom) | The battery refills in s·φ/h hours, so tight caps plan over *longer* than the slack (10 days at +5%). Water-filling over that horizon cuts the bias to −4.6% (24 h slack) and −1.6% (168 h) |
+| A 10-minute UPS saves only 0.19% (Finding 4) | Half-flexible load with 24 h slack is a 12-hour lossless battery: 72× the UPS's energy, with no losses |
+| Blending signals works for load (Finding 14) but not for UPS batteries (Finding 15) | Losses, not storage, are the obstacle: a *lossless* 1 h battery dispatched on the 0.7 blend worsens neither ledger in any of 48 BAs, while at 90% round trip it worsens the average ledger in 60% |
+
+The last row was a prediction made from the theorem before running the test.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
@@ -333,7 +343,7 @@ The headroom curve (Finding 1), the 13x peak, the value of a kW and the swing la
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 79 tests
+.venv/bin/python -m pytest              # 83 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

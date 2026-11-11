@@ -101,3 +101,24 @@ def value_waterfill(ci: np.ndarray, phi: float, cap) -> float:
     level = srt[:, min(kf, 23)]
     full = (level[:, None] - srt[:, :kf]).sum(axis=1)  # the fractional hour sits at the level: zero gap
     return float(full.mean() / 24 * HOURS_PER_YEAR)
+
+
+def lower_partial_mean(ci: np.ndarray, q: float, window: int = 24) -> float:
+    """Mean over windows of the average of each window's cleanest fraction q of hours (q -> 0: the window minimum)."""
+    w = np.asarray(ci, dtype=float)[: len(ci) // window * window].reshape(-1, window)
+    srt = np.sort(w, axis=1)
+    if q <= 0:
+        return float(srt[:, 0].mean())
+    k = q * window
+    kf = int(np.floor(k))
+    tot = srt[:, :kf].sum(axis=1) + (k - kf) * (srt[:, kf] if kf < window else 0.0)
+    return float((tot / k).mean())
+
+
+def saving_general(ci: np.ndarray, phi: float, cap, slack: int = 24) -> float:
+    """General water-filling law for any slack: S = phi * (mean - L_slack(q)), q = phi / (phi + h).
+
+    Equals saving_waterfill for slack = 24; the sinc law is its sinusoidal special case.
+    """
+    q = float(q_of(phi, cap))
+    return float(phi * (np.mean(np.asarray(ci, dtype=float)[: len(ci) // slack * slack]) - lower_partial_mean(ci, q, slack)))

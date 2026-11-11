@@ -319,7 +319,9 @@ def build(n: dict) -> None:
         f"{f((rg(0.65, '2N', 'perfect_pct') - rg(0.65, 'design_only', 'perfect_pct')) / (rg(0.65, 'design_only', 'ideal_pct') - rg(0.65, 'design_only', 'perfect_pct')) * 100, 0)}% "
         "of the gap to the ideal, and maintenance and failures erode almost none of it. These LP results follow from a closed-form *water-filling law*: "
         "the share of the saving kept depends only on headroom per unit of flexible load, the saving is φ·A·sinc(πφ/(φ+h)) for daily swing A, and the "
-        "value of a kW is a daily water-level area (R² 0.97-0.98 against the LP). Finally, measurements of LLM inference on an Apple M4 Pro GPU "
+        "value of a kW is a daily water-level area (R² 0.97-0.98 against the LP). Underneath, a flexible workload under a cap is exactly a lossless "
+        "battery of energy s·φ, which explains why UPS batteries barely help and why losses, not storage, stop a scheduler from serving both average "
+        "and marginal carbon ledgers. Finally, measurements of LLM inference on an Apple M4 Pro GPU "
         f"show that batching cuts energy per token by {f(lg('Qwen2.5-1.5B', 1, 'all_j_per_tok') / lg('Qwen2.5-1.5B', 32, 'all_j_per_tok'), 1)}x for "
         f"{f(lg('Qwen2.5-1.5B', 32, 'all_power_w') / lg('Qwen2.5-1.5B', 1, 'all_power_w'), 1)}x more power, a larger lever than temporal shifting. "
         "All code, data and a secure interactive explorer are released.")
@@ -356,7 +358,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (79 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (83 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
@@ -485,6 +487,18 @@ def build(n: dict) -> None:
         "An hour can collect the flexible arrivals of all s + 1 hours whose s-hour window contains it, so the uncapped schedule peaks at 1 + s·φ "
         f"({wf['peak_law_phi0.5']:.0f}× for φ = 0.5, matching the LP exactly). Together these laws let an operator estimate both the saving and the "
         "value of new capacity from a sort of each day's prices, with no optimiser.")
+    vb = pd.read_csv(RES / "virtual_battery_summary.csv", index_col=0)["value"]
+    P.p(
+        "**Flexible load is a lossless battery.** With backlog B = arrivals − served, the cumulative-flow constraints read 0 ≤ B ≤ s·φ and −h ≤ ΔB ≤ φ, "
+        "and the objective is linear in ΔB. Capped shifting is therefore exactly a battery of energy s·φ, discharge power φ, charge power h and 100% "
+        f"efficiency, up to the boundary condition (median difference {vb['equiv_median_abs_rel_diff'] * 100:.2f}% on 20 real zones). Three consequences. "
+        "(a) The virtual battery refills in s·φ/h hours, so tight caps plan beyond the nominal slack; water-filling over T = s·max(1, φ/h) reduces the "
+        f"bias of fixed blocks at +5% headroom from {vb['block_law_slack24_bias_at_cap1.05'] * 100:.0f}% to {vb['horizon_law_slack24_bias_at_cap1.05'] * 100:.1f}% "
+        f"(R² {vb['horizon_law_slack24_r2']:.3f} at 24 h slack, {vb['horizon_law_slack168_r2']:.3f} at 168 h). (b) A 10-minute UPS is a battery with 1/72 of the "
+        "virtual energy of half-flexible load and with losses, which explains Sec. 7. (c) It predicts why blending signals works for load (Sec. 5.6) but "
+        f"not for real batteries: a *lossless* 1 h battery on the 0.7 blend worsens neither ledger in any of {vb['bas']:.0f} BAs "
+        f"({vb['lossless_w0.7_raises_avg_pct']:.0f}% / {vb['lossless_w0.7_raises_marg_pct']:.0f}%), while at 90% round trip it worsens the average ledger in "
+        f"{vb['eta90_w0.7_raises_avg_pct']:.0f}%. Round-trip loss, not storage, is the obstacle.")
     P.figure(FIG / "waterfill_law.png", "The water-filling law. Left: share of the ideal saving kept versus h/φ for three flexible shares (they coincide, by the homogeneity theorem) and the sinc law. Middle: closed-form versus LP saving. Right: water-level area versus LP shadow price.")
 
     # ------------------------------------------------------------------ 5 shadow price
