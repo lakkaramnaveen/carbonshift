@@ -285,6 +285,22 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
 3. uses tier redundancy as carbon-shifting headroom.
 
+## 5b. A closed-form law for all of the above
+
+The headroom curve (Finding 1), the 13x peak, the value of a kW and the swing law were all computed with an LP. They follow from one picture. With 24 h slack, a day's flexible work (24 φ units) runs at its maximum rate φ + h in the day's cleanest hours, like water filling the lowest parts of the price curve. That gives four closed forms (`src/carbonshift/waterfill.py`), each tested against the LP results (`scripts/waterfill_experiments.py`):
+
+| Law | Formula | Against the LP |
+|---|---|---|
+| Homogeneity theorem | share kept depends only on **h / φ** | exact: max difference 0.0000 over 1,200 zone-level pairs |
+| Uncapped saving | φ · A, where A = mean daily (mean − min) | R² 0.998 |
+| Capped saving | **φ · A · sinc(π φ / (φ + h))** | R² 0.968 over 4,680 LP solves; median error 0.9% |
+| Value of +1 kW | daily area between the "water level" and the cheaper filled hours | R² 0.981 over 360 zone-years; median ratio 1.002 |
+| Peak draw, uncapped | 1 + slack · φ | exact (7x, 13x, 19x for φ = 0.25, 0.5, 0.75) |
+
+**Finding 16: one formula explains the facility results.** *Headroom per unit of flexible load* is the only variable that matters for the share kept: +20% headroom with half the load flexible behaves exactly like +10% with a quarter flexible. The sinc curve gives the shape: half the ideal survives at h ≈ 0.8 φ. For a sinusoidal day the value of a kW is π A q² |sinc′(π q)| with q = φ / (φ + h). It is linear in the daily amplitude A and blind to the mean, which *derives* the swing law found empirically in Finding 10. In practice an operator can estimate both the saving and the value of new capacity from one sort of each day's prices, with no optimiser.
+
+![Water-filling law](../figures/waterfill_law.png)
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
@@ -317,7 +333,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 73 tests
+.venv/bin/python -m pytest              # 79 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

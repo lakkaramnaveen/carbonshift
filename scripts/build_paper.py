@@ -317,7 +317,9 @@ def build(n: dict) -> None:
         f"{f(pg(24, 1.2, 'cpu_servers_pays_back_in_life_pct'), 0)}% of zones. Tier redundancy (N+1, 2N) offers this headroom for free: using the spare path "
         f"for sheddable work closes {f((rg(0.65, 'N+1 (N=4)', 'perfect_pct') - rg(0.65, 'design_only', 'perfect_pct')) / (rg(0.65, 'design_only', 'ideal_pct') - rg(0.65, 'design_only', 'perfect_pct')) * 100, 0)}-"
         f"{f((rg(0.65, '2N', 'perfect_pct') - rg(0.65, 'design_only', 'perfect_pct')) / (rg(0.65, 'design_only', 'ideal_pct') - rg(0.65, 'design_only', 'perfect_pct')) * 100, 0)}% "
-        "of the gap to the ideal, and maintenance and failures erode almost none of it. Finally, measurements of LLM inference on an Apple M4 Pro GPU "
+        "of the gap to the ideal, and maintenance and failures erode almost none of it. These LP results follow from a closed-form *water-filling law*: "
+        "the share of the saving kept depends only on headroom per unit of flexible load, the saving is φ·A·sinc(πφ/(φ+h)) for daily swing A, and the "
+        "value of a kW is a daily water-level area (R² 0.97-0.98 against the LP). Finally, measurements of LLM inference on an Apple M4 Pro GPU "
         f"show that batching cuts energy per token by {f(lg('Qwen2.5-1.5B', 1, 'all_j_per_tok') / lg('Qwen2.5-1.5B', 32, 'all_j_per_tok'), 1)}x for "
         f"{f(lg('Qwen2.5-1.5B', 32, 'all_power_w') / lg('Qwen2.5-1.5B', 1, 'all_power_w'), 1)}x more power, a larger lever than temporal shifting. "
         "All code, data and a secure interactive explorer are released.")
@@ -354,7 +356,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (73 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (79 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
@@ -463,6 +465,27 @@ def build(n: dict) -> None:
         "includes floor cooling, and the documented meaning of the trace's bad-data flag contradicts the data, so we treat the 24 rows flagged True as bad.")
     P.figure(FIG / "diurnal_headroom.png", "Share of the ideal saving kept at each Google power domain's real headroom (pooled over 120 grids).", width=4.6)
     P.figure(FIG / "facility_zones.png", "Facility-level reduction versus headroom for four grids (φ = 0.5, 24 h slack); dotted lines mark the uncapped ideal.", width=4.6)
+
+    wf = pd.read_csv(RES / "waterfill_summary.csv", index_col=0)["value"]
+    P.h("4.5 A closed-form law: water-filling", 2)
+    P.p(
+        "The results above come from an LP, but they follow from one picture. With 24 h slack, a day's flexible work (24φ units) runs at its maximum rate "
+        "r = φ + h in the day's cleanest hours, filling k = 24φ/r hours like water filling the lowest parts of the price curve. Four laws follow, each "
+        "tested against the LP outputs. (i) **Homogeneity theorem.** The inflexible load only consumes capacity, so the flexible sub-problem has arrivals φ "
+        "and capacity φ + h; scaling both by λ scales the LP solution by λ. The share of the ideal saving kept therefore depends on (φ, h) only through "
+        f"**h/φ**, the headroom per unit of flexible load (max difference {wf['homogeneity_max_abs_diff_retained']:.4f} over "
+        f"{wf['homogeneity_pairs']:.0f} zone-level pairs). (ii) **Closed form.** For a sinusoidal day of amplitude A, the k cleanest hours average "
+        "M − A·sinc(πq) with q = φ/(φ + h), so the saving is **φ·A·sinc(πq)** and the share kept is sinc(πq). With A taken as the mean daily (mean − min) "
+        f"of each zone's trace, φ·A predicts the uncapped saving at R² = {wf['uncapped_r2_phiA_vs_lp']:.3f}, and φ·A·sinc(πq) the capped saving at "
+        f"R² = {wf['saving_r2_finite_caps']:.3f} over {wf['saving_cases']:.0f} LP solves (median error {wf['saving_median_rel_err'] * 100:.1f}%). "
+        "(iii) **The value of a kW is a water-level area.** Differentiating the order-statistic saving gives dS/dh = Σ over filled hours of (water level − price): "
+        f"the area between the price of the marginal filled hour and the cheaper ones. Computed from a sort of each day, it matches the LP shadow prices of "
+        f"Sec. 5 at R² = {wf['value_r2']:.3f} (median ratio {wf['value_median_ratio']:.3f}, {wf['value_cases']:.0f} zone-years). For a sinusoidal day it is "
+        "π·A·q²·|sinc′(πq)|: linear in the daily amplitude and independent of the mean, which derives the swing law of Sec. 5.4. (iv) **Peak draw.** "
+        "An hour can collect the flexible arrivals of all s + 1 hours whose s-hour window contains it, so the uncapped schedule peaks at 1 + s·φ "
+        f"({wf['peak_law_phi0.5']:.0f}× for φ = 0.5, matching the LP exactly). Together these laws let an operator estimate both the saving and the "
+        "value of new capacity from a sort of each day's prices, with no optimiser.")
+    P.figure(FIG / "waterfill_law.png", "The water-filling law. Left: share of the ideal saving kept versus h/φ for three flexible shares (they coincide, by the homogeneity theorem) and the sinc law. Middle: closed-form versus LP saving. Right: water-level area versus LP shadow price.")
 
     # ------------------------------------------------------------------ 5 shadow price
     P.h("5 The Carbon Price of a Kilowatt")

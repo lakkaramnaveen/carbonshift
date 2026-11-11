@@ -44,8 +44,9 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
 
-**Further findings** (F11–F20 in the log):
+**Further findings** (F11–F21 in the log):
 
+- **A closed-form law replaces the LP (F21).** With 24 h slack, flexible work water-fills each day's cleanest hours. The share of the ideal saving kept depends only on headroom per unit of flexible load, h/φ (an exact theorem). The saving is φ·A·sinc(πφ/(φ+h)), where A is the daily swing (R² 0.968 against 4,680 LP solves). The value of +1 kW is a 'water-level' area (R² 0.981 against LP shadow prices). This derives the 13× peak, the headroom curve and the swing law from first principles.
 - **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
 - **Forecast error** (5–15% MAPE) and power caps compound almost independently.
 - **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
@@ -95,6 +96,7 @@ src/carbonshift/
   forecast.py          MAPE-calibrated AR(1) forecast errors and the regret they cause
   google_power.py      Google PowerData2019 loader (real utilisation and load shapes)
   eia930.py            EIA-930 average and marginal (Siler-Evans) emission signals
+  waterfill.py         closed-form water-filling laws (sinc saving, water-level value, homogeneity, peak)
   hedge.py             average-vs-marginal Pareto frontier via blended objectives
   llm_batching.py      static vs carbon-aware batching under a latency budget (Lagrangian, LP-checked)
   power.py             sudo-free Apple Silicon power sampling via macmon
@@ -116,10 +118,11 @@ scripts/
   joint_experiments.py         spatial + temporal shifting under per-region caps
   hedge_experiments.py         blend average and marginal signals (Pareto frontier)
   battery_marginal_experiments.py  UPS batteries under marginal signals + split-half noise check
+  waterfill_experiments.py     test the closed-form laws against the LP
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
   build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
-tests/          73 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          79 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -130,7 +133,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 73 tests, ~3 s
+.venv/bin/python -m pytest                              # 79 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min
