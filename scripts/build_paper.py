@@ -702,6 +702,22 @@ def build(n: dict) -> None:
         "savings never saturate, which is an artefact: an hourly factor does not know how much clean energy is left.")
     P.figure(FIG / "curtailment_fleet.png", "A new flexible fleet on CAISO's 2022 grid. Left: avoided emissions versus a run-on-arrival fleet; uncoordinated facilities (herd) backfire without a power cap. Right: share of fleet energy served by curtailed renewables, with the daily water-filling formula.")
 
+    sx = pd.read_csv(RES / "sidechannel_summary.csv", index_col=0)["value"]
+    P.h("5.9 The power meter as a side channel", 2)
+    P.p(
+        "With hourly draw d scaled to mean 1, the carbon saved against a flat draw is exactly −cov(c, d) (verified to 10⁻¹¹ g/kWh): saving carbon *is* leaving a "
+        "negative covariance between the facility's meter and the public carbon signal. We simulate "
+        f"{sx['facilities']:.0f} facilities on {sx['zones']:.0f} zones with flat or real Google load shapes (day-to-day variability bootstrapped from the traces) "
+        "and 1% meter noise. An observer correlates hour-of-day residuals of meter and signal, so ordinary diurnal load is not flagged. On realistic load, "
+        f"real-time carbon-aware scheduling is detected with AUC {sx['auc_google_realtime_7d']:.2f} after 7 days and {sx['auc_google_realtime_90d']:.2f} after 90. "
+        f"Dithering the signal costs {100 - sx['saving_kept_google_dither_pooled'] * 100:.0f}% of the saving and still leaves AUC {sx['auc_google_dither_7d']:.2f}. "
+        f"Scheduling on a monthly time-of-day profile is undetectable for two weeks (AUC {sx['auc_google_time_of_day_14d']:.2f}), reaches only "
+        f"{sx['auc_google_time_of_day_90d']:.2f} at 90 days, and keeps {sx['saving_kept_google_time_of_day_pooled'] * 100:.0f}% of the saving. Through the "
+        "virtual-battery theorem, cumsum(1 − d) is the backlog of deferred work, so the meter alone reveals the operator's parameters: on flat load, 30 days give "
+        f"φ within {sx['phi_mae_flat_30d']:.3f} and the battery energy s·φ within {abs(sx['energy_median_ratio_flat_30d'] - 1) * 100:.0f}% (median). "
+        "With real load the values are biased, but flexible shares remain perfectly ordered.")
+    P.figure(FIG / "sidechannel.png", "Left: detection AUC of carbon-aware scheduling from the meter and the public signal (solid: real Google load; dashed: flat). Right: saving kept by schedulers that try to hide.")
+
     P.h("6 The Redundancy Dividend")
     P.p(
         "Tier-rated facilities already own idle electrical capacity. Flex [3] showed that this reserve can host software-redundant work and be reclaimed "

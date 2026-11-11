@@ -351,6 +351,24 @@ Every result above, and the literature it builds on, treats the grid signal as f
 
 *Limitations.* The margin is a constant gas rate; imports, hydro and storage dispatch would also respond to new load. Curtailment is taken as observed, though a fleet that shows up would change future curtailment and solar build-out. The fleet is a single new load at CAISO scale, with no transmission limits inside CAISO.
 
+## 5d. The power meter as a side channel
+
+**Finding 20: carbon-aware scheduling is visible on the power meter within a week, and the meter reads out the virtual battery.** With hourly draw d scaled to mean 1, the carbon saved against a flat draw is exactly −cov(c, d) (verified to 10⁻¹¹ g/kWh). So no facility can save carbon without a matching negative covariance between its meter and the public carbon signal. Anyone who sees the meter (the utility, a co-located tenant, an inspector with a clamp meter) and the public signal can test for it.
+
+Setup: 960 simulated facilities on 40 Electricity Maps zones (φ 0.1-0.5, slack 12-24 h, headroom +20-50%) and 1% meter noise. Inflexible load is either flat or a real Google power-domain shape, with day-to-day variability bootstrapped from the May 2019 traces. The observer correlates hour-of-day residuals of meter and signal. An ordinary busy-by-day load that happens to line up with a solar grid is therefore *not* flagged (tested).
+
+| Scheduler (Google load) | AUC, 7 days | 30 days | 90 days | Saving kept |
+|---|---|---|---|---|
+| Real-time carbon signal | 0.92 | 0.96 | 0.99 | 100% |
+| Signal + noise (σ = ½ signal std) | 0.84 | 0.91 | 0.97 | 78% |
+| Monthly time-of-day profile | 0.52 | 0.61 | 0.74 | 70% |
+
+- **Dithering does not hide it.** Random noise in the schedule costs 22% of the saving and still leaves AUC ≥ 0.84 after one week.
+- **A time-of-day schedule does.** Scheduling on each month's average carbon by hour is indistinguishable from ordinary load for two weeks (AUC 0.52). It is only weakly detectable after 90 days, through month-to-month profile changes, and keeps 70% of the saving. It responds to the predictable part of the grid's cycle and ignores day-to-day weather, which is exactly the part the detector sees.
+- **The meter reveals the operator's parameters.** By the virtual-battery theorem (F22), cumsum(1 − d) is the backlog of deferred work. On flat load, 30 days of meter data give the flexible share within 0.015 (all facilities classified correctly), the headroom within 0.025, the virtual battery energy s·φ within 5% (median), and the slack (12 vs 24 h) correctly for 97% of facilities. With real Google load the absolute values are biased, but the flexible shares are still ordered perfectly over a year, and slack is right for 86-87%.
+
+Why it matters: the flexible share and slack describe an operator's workload mix and its customers' deadlines. Carbon-aware scheduling as usually built broadcasts them. Power side channels in data centres are known (e.g. power attacks on oversubscribed facilities), and non-intrusive load monitoring is a mature field; I found no prior work on detecting carbon-awareness, or inferring its parameters, from a facility meter. *Limitations:* simulated facilities with fluid work; an observer with hourly data and the same public signal; no adversarial operator strategies beyond the three tested.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
