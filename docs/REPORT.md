@@ -311,6 +311,18 @@ The headroom curve (Finding 1), the 13x peak, the value of a kW and the swing la
 
 The last row was a prediction made from the theorem before running the test.
 
+**Finding 18: the storage exchange rate. A kW of headroom for flexible work replaces several kWh of real batteries, for 1/8 to 1/55 of their embodied carbon.** The virtual battery is lossless and free; a real one is not. To price the difference, I compared every zone's capped-shifting saving (the LP above) with a grid-scale Li-ion battery: 4 h duration, 90% round trip, cyclic, optimally dispatched on the same signal (one LP per zone, 123 zones, 2022). The battery's saving per kWh obeys its own closed form, a daily *spread law*: charge in each day's 4 cleanest hours, discharge in the 4 dirtiest, skip days whose spread does not cover the losses (R² 0.993 against the LP, median ratio 0.999).
+
+| Facility (φ = 0.5, 24 h slack) | +5% | +10% | +20% | +50% | no cap |
+|---|---|---|---|---|---|
+| Battery kWh with the same saving, per kW of mean load (median) | 1.9 | 3.0 | 4.3 | 6.8 | 11.0 |
+| Battery embodied carbon ÷ headroom embodied carbon (median) | 55× | 42× | 31× | 19× | — |
+| Same, most battery-favourable zone and factors | 22× | 19× | 16× | 8.4× | — |
+
+The exchange rate inherits the homogeneity theorem: X / (24φ) = κ_zone × retention(h/φ), so φ = 0.25 at +5% gives exactly the same per-virtual-kWh rate as φ = 0.5 at +10% (0.248). With no cap, one virtual kWh is worth κ = 0.91 real kWh (median; interquartile 0.78-1.44). In 7 of 123 zones the daily spread never covers 10% losses, so a battery saves nothing while flexible load still does. Chaining the two closed forms (water-filling over the effective horizon ÷ spread law) predicts the LP exchange rate with log-R² 0.91 and a median ratio of 0.94, with no optimiser at all.
+
+Caveats: embodied factors are LFP 54-69 kg CO2eq/kWh (secondary source) against grid-only headroom (transformer + switchgear, 18-38 kg/kW); batteries also sell grid services this comparison ignores, and their shorter life (about 15 years vs 25) would widen the gap further.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.

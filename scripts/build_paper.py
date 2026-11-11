@@ -711,6 +711,23 @@ def build(n: dict) -> None:
         f"(best zone {n['bat4h_max']:.1f}%), less than half-flexible load with 50% headroom ({get(24, 1.5, 'reduction_pct'):.1f}%). "
         "On a marginal ledger the picture changes (Sec. 5.6).")
     P.figure(FIG / "facility_battery.png", "Facility CO2 reduction from carbon-optimal battery dispatch versus battery size.", width=4.4)
+    ex = pd.read_csv(RES / "exchange_summary.csv", index_col=0)["value"]
+    P.h("7.1 The storage exchange rate", 2)
+    P.p(
+        "Sec. 4.5 showed that capped flexible load is a lossless battery. How many kWh of a *real* battery is it worth? For every zone we compare the capped "
+        "shifting saving with a grid-scale 4 h battery at 90% round trip. Its dispatch LP is linear in capacity while power stays below load, so one solve per "
+        "zone gives the saving per kWh, b, and the exchange rate is X = S_flex / b kWh per kW of mean load. b obeys a daily **spread law**: charge in each day's "
+        "four cleanest hours, discharge in the four dirtiest, and skip days whose spread does not cover the losses, "
+        f"b = (1/24)·mean_days max(0, √η·H₄ − L₄/√η) (R² {ex['spread_law_r2_4h']:.3f} against the LP, median ratio {ex['spread_law_median_ratio_4h']:.3f}). "
+        f"For φ = 0.5 and 24 h slack the median facility is worth {ex['X_median_phi0.5_cap1.05']:.1f}, {ex['X_median_phi0.5_cap1.2']:.1f} and "
+        f"{ex['X_median_phi0.5_cap1.5']:.1f} kWh of battery per kW at +5%, +20% and +50% headroom, and {ex['X_median_phi0.5_capinf']:.0f} kWh uncapped. "
+        "By the homogeneity theorem the rate per virtual kWh, X/(24φ), depends only on h/φ and a zone constant κ; uncapped, one virtual kWh is worth "
+        f"κ = {ex['X_over_virtual_median_phi0.5_capinf']:.2f} real kWh (median). Building that battery (LFP, 54-69 kg CO2eq/kWh) would embody a median "
+        f"{ex['embodied_ratio_battery_over_headroom_median_phi0.5_cap1.2']:.0f}× (at least {ex['embodied_ratio_battery_over_headroom_min_phi0.5_cap1.2']:.0f}×) "
+        "the carbon of the grid-only headroom that unlocks the same saving at +20%. Chaining the two closed forms predicts the LP exchange rate with log-R² "
+        f"{ex['closed_form_X_r2_log']:.2f} and no optimiser. In 7 of 123 zones the daily spread never covers the losses, so a battery saves nothing while "
+        "flexible load still does. Batteries also earn grid-service revenue that this carbon-only comparison ignores.")
+    P.figure(FIG / "exchange_rate.png", "Storage exchange rate. Left: kWh of 4 h, 90%-efficient battery that saves as much carbon as the capped flexible load, per kW of mean load. Right: the closed-form daily spread law against the battery LP.")
 
     # ------------------------------------------------------------------ 8 LLM
     P.h("8 Measured LLM Inference Energy versus Batch Size")
