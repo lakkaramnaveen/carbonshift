@@ -585,13 +585,17 @@ def build(n: dict) -> None:
     P.figure(FIG / "marginal_signals.png", "Under marginal signals (EIA-930, 2022): capacity value versus signal swing (left); average versus marginal mean intensity per BA (right).")
 
     hs = pd.read_csv(RES / "hedge_summary.csv", index_col=0)["value"]
+    ho = pd.read_csv(RES / "hedge_oos_pooled.csv", index_col=0)
     P.p(
         "**Hedging between the signals.** An operator who reports average emissions but wants to cut marginal ones need not choose. Scheduling on "
         "w·average + (1 − w)·marginal and scoring on both traces the Pareto frontier of the linear program. It is strongly concave: pure schedules keep "
         f"{hs['pooled_marg_share_w1.0'] * 100:.0f}% and {hs['pooled_avg_share_w0.0'] * 100:.0f}% of the other signal's optimum, but w = 0.7 keeps "
         f"{hs['pooled_avg_share_w0.7'] * 100:.0f}% of the average and {hs['pooled_marg_share_w0.7'] * 100:.0f}% of the marginal optimum (pooled over "
         f"{hs['bas']:.0f} BAs). Per BA, the best balanced weight keeps a median {hs['balanced_worst_share_median'] * 100:.0f}% of both. Each signal leaves many "
-        "hours nearly tied, and the other signal breaks those ties at little cost, so blending signals dominates choosing one.")
+        "hours nearly tied, and the other signal breaks those ties at little cost, so blending signals dominates choosing one. The frontier keeps its shape "
+        "out of sample (MEFs estimated on even days and scored on odd days, and vice versa): w = 0.7 keeps "
+        f"{ho.loc[0.7, 'avg_share'] * 100:.0f}% of the average optimum and {ho.loc[0.7, 'marg_oos_vs_marginal_only_oos'] * 100:.0f}% of the marginal-only "
+        "plan's held-out saving. Blending does not, however, regularise the noisy marginal signal: pooled, the held-out marginal saving peaks at w = 0.")
     P.figure(FIG / "hedge_frontier.png", "Average-vs-marginal Pareto frontier per BA as the weight on the average signal goes from 0 to 1 (left); best achievable share of both optima per BA (right).")
 
     bm = pd.read_csv(RES / "battery_marginal_summary.csv")

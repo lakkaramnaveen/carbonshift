@@ -263,7 +263,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 | Share of average optimum kept | 6% | 38% | 58% | **78%** | 96% | 100% |
 | Share of marginal optimum kept | 100% | 98% | 92% | **79%** | 46% | 7% |
 
-**Finding 14: hedging is nearly free.** The frontier is strongly concave. Each pure schedule gets 6-7% of the other signal's saving and makes it worse in 43-47% of BAs, but a small weight on the other signal recovers much of it: w = 0.9 gives up 4% of the average saving to lift the marginal one from 7% to 46%. Per BA, the best balanced weight keeps a median 73% of both optima. The reason is that each signal leaves many hours nearly tied, and the other signal breaks those ties at little cost. Schedulers should not pick one signal; they should blend them.
+**Finding 14: hedging is nearly free.** The frontier is strongly concave. Each pure schedule gets 6-7% of the other signal's saving and makes it worse in 43-47% of BAs, but a small weight on the other signal recovers much of it: w = 0.9 gives up 4% of the average saving to lift the marginal one from 7% to 46%. Per BA, the best balanced weight keeps a median 73% of both optima. The reason is that each signal leaves many hours nearly tied, and the other signal breaks those ties at little cost. Schedulers should not pick one signal; they should blend them. The result holds out of sample (marginal factors estimated on even days, scored on odd days, and vice versa): w = 0.7 then keeps 76% of the average optimum and 82% of what the marginal-only plan achieves on held-out days. Blending is not, however, a useful regulariser for the noisy marginal signal: the held-out marginal saving peaks at w = 0 when pooled.
 
 ![Hedging frontier](../figures/hedge_frontier.png)
 

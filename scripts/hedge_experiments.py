@@ -5,6 +5,9 @@ optimum and raises marginal emissions in 44% of BAs. Here each BA schedules on
 w*avg + (1-w)*marginal for w in [0, 1] and is scored on both signals.
 
 phi = 0.5, 24 h slack, cap = 1/0.70 (as F17).
+
+Out-of-sample check (F21): plan on w*avg + (1-w)*marginal with marginal factors
+estimated on even days, score on factors from odd days (and vice versa).
 Outputs: results/hedge_*.csv, figures/hedge_frontier.png
 Run: python scripts/hedge_experiments.py   (~3 min)
 """
@@ -18,8 +21,9 @@ import numpy as np
 import pandas as pd
 
 from carbonshift import plotting as P
-from carbonshift.eia930 import signals
-from carbonshift.hedge import frontier
+from carbonshift.eia930 import signals, split_half_marginal
+from carbonshift.facility import capped_shift
+from carbonshift.hedge import frontier, saving
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
 PHI, SLACK, CAP = 0.5, 24, 1 / 0.70
@@ -29,6 +33,19 @@ W = np.round(np.linspace(0, 1, 11), 2)
 def _task(args):
     ba, avg, mar = args
     return frontier(avg, mar, PHI, CAP, SLACK, W).assign(ba=ba)
+
+
+def _oos_task(args):
+    ba, avg, me, mo = args
+    rows = []
+    for w in W:
+        xe = capped_shift(w * avg + (1 - w) * me, PHI, CAP, SLACK).served
+        xo = capped_shift(w * avg + (1 - w) * mo, PHI, CAP, SLACK).served
+        rows.append({"ba": ba, "w_avg": float(w),
+                     "avg_saving_g": (saving(avg, xe, PHI) + saving(avg, xo, PHI)) / 2,
+                     "marg_in_sample_g": (saving(me, xe, PHI) + saving(mo, xo, PHI)) / 2,
+                     "marg_out_of_sample_g": (saving(mo, xe, PHI) + saving(me, xo, PHI)) / 2})
+    return rows
 
 
 def main() -> None:
@@ -81,6 +98,30 @@ def main() -> None:
     axes[1].set(xlabel="Best achievable min(avg share, marginal share)", ylabel="Balancing authorities",
                 title=f"Balanced schedule (median {summ['balanced_worst_share_median']:.0%})")
     P.save(fig, "hedge_frontier")
+
+    sp = split_half_marginal()
+    pe = sp.pivot(index="utc", columns="ba", values="m_even")
+    po = sp.pivot(index="utc", columns="ba", values="m_odd")
+    keep = sorted(ok.ba.unique())
+    keep = [b for b in keep if b in pe.columns and pe[b].notna().all() and po[b].notna().all()]
+    with ProcessPoolExecutor() as ex:
+        oos = pd.DataFrame([r for rows in ex.map(_oos_task, [(b, pa[b].to_numpy(), pe[b].to_numpy(), po[b].to_numpy()) for b in keep]) for r in rows])
+    oos.to_csv(RESULTS / "hedge_oos_per_ba.csv", index=False)
+    pool = oos.groupby("w_avg")[["avg_saving_g", "marg_in_sample_g", "marg_out_of_sample_g"]].sum()
+    ref_a = pool.loc[1.0, "avg_saving_g"]
+    ref_m_in = pool.loc[0.0, "marg_in_sample_g"]          # marginal-only plan, scored on its own half
+    ref_m_oos = pool.loc[0.0, "marg_out_of_sample_g"]     # marginal-only plan, scored on the held-out half
+    pool = pool.assign(avg_share=pool.avg_saving_g / ref_a, marg_oos_share_of_in_sample=pool.marg_out_of_sample_g / ref_m_in,
+                       marg_oos_vs_marginal_only_oos=pool.marg_out_of_sample_g / ref_m_oos)
+    best_w = oos.loc[oos.groupby("ba").marg_out_of_sample_g.idxmax()]
+    pool.to_csv(RESULTS / "hedge_oos_pooled.csv")
+    so = {"bas": len(keep), "pooled_best_w_for_oos_marginal": float(pool.marg_out_of_sample_g.idxmax()),
+          "pooled_oos_marginal_gain_at_best_w_vs_w0_pct": (pool.marg_out_of_sample_g.max() / ref_m_oos - 1) * 100,
+          "bas_where_best_oos_w_gt0_pct": float((best_w.w_avg > 0).mean() * 100),
+          "median_best_oos_w": float(best_w.w_avg.median())}
+    pd.Series(so).to_csv(RESULTS / "hedge_oos_summary.csv", header=["value"])
+    print(pool.round(3).to_string())
+    print(pd.Series(so).round(3).to_string())
 
 
 if __name__ == "__main__":
