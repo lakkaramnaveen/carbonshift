@@ -26,6 +26,7 @@ import pandas as pd
 
 RAW = Path(__file__).resolve().parents[2] / "data" / "eia930" / "raw"
 DERIVED = Path(__file__).resolve().parents[2] / "data" / "eia930" / "signals_2022.csv.gz"
+SPLIT = Path(__file__).resolve().parents[2] / "data" / "eia930" / "mef_split_2022.csv.gz"
 FUELS = {"Coal": 820, "Natural Gas": 490, "All Petroleum Products": 650, "Nuclear": 12,
          "Hydropower and Pumped Storage": 24, "Solar": 45, "Wind": 11, "Other Fuel Sources": 230,
          "Unknown Fuel Sources": 490}
@@ -44,11 +45,17 @@ def _read_raw() -> pd.DataFrame:
     return d[["ba", "utc", "gen_mwh", "emis_kg"]]
 
 
-def marginal_factors(df: pd.DataFrame) -> pd.Series:
-    """MEF (g/kWh) per (season, hour) bin from first differences, OLS through the origin."""
+def marginal_factors(df: pd.DataFrame, parity: int | None = None) -> pd.Series:
+    """MEF (g/kWh) per (season, hour) bin from first differences, OLS through the origin.
+
+    ``parity`` (0 or 1) keeps only differences whose later hour falls on an even or odd
+    day of the year, for split-half (out-of-sample) estimates.
+    """
     d = df.sort_values("utc")
     dg, de = d.gen_mwh.diff(), d.emis_kg.diff()
     ok = (d.utc.diff() == pd.Timedelta(hours=1)) & dg.abs().gt(1e-6)
+    if parity is not None:
+        ok &= (d.utc.dt.day_of_year % 2) == parity
     x = pd.DataFrame({"dg": dg[ok], "de": de[ok], "s": d.utc[ok].dt.month.map(SEASON), "h": d.utc[ok].dt.hour})
     return x.groupby(["s", "h"]).apply(lambda b: (b.dg * b.de).sum() / (b.dg ** 2).sum(), include_groups=False)
 
@@ -74,3 +81,30 @@ def signals() -> pd.DataFrame:
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(DERIVED, index=False, compression="gzip")
     return df
+
+
+@lru_cache(maxsize=1)
+def split_half_marginal() -> pd.DataFrame:
+    """Hourly marginal signals per BA estimated from even days ("m_even") and odd days ("m_odd") separately.
+
+    Dispatching on one half and scoring on the other separates real marginal
+    structure from estimation noise. The per-bin factors are cached to a small file.
+    """
+    if SPLIT.exists():
+        mef = pd.read_csv(SPLIT)
+    else:
+        raw, rows = _read_raw(), []
+        for ba, d in raw.groupby("ba"):
+            d = d.drop_duplicates("utc").set_index("utc").sort_index()[["gen_mwh", "emis_kg"]]
+            d = d[(d.gen_mwh > 0)].reindex(pd.date_range("2022-01-01", "2022-12-31 23:00", freq="h"))
+            if d.gen_mwh.notna().mean() < 0.9:
+                continue
+            d = d.interpolate(limit=6).ffill().bfill().rename_axis("utc").reset_index()
+            e, o = marginal_factors(d, 0), marginal_factors(d, 1)
+            rows.append(pd.DataFrame({"ba": ba, "s": [k[0] for k in e.index], "h": [k[1] for k in e.index],
+                                      "m_even": e.values, "m_odd": o.reindex(e.index).values}))
+        mef = pd.concat(rows, ignore_index=True)
+        mef.to_csv(SPLIT, index=False, compression="gzip")
+    t = pd.date_range("2022-01-01", "2022-12-31 23:00", freq="h")
+    grid = pd.DataFrame({"utc": t, "s": t.month.map(SEASON), "h": t.hour})
+    return grid.merge(mef, on=["s", "h"]).drop(columns=["s", "h"]).sort_values(["ba", "utc"], ignore_index=True)

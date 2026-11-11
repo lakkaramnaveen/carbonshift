@@ -354,7 +354,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (70 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (72 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
@@ -594,6 +594,23 @@ def build(n: dict) -> None:
         "hours nearly tied, and the other signal breaks those ties at little cost, so blending signals dominates choosing one.")
     P.figure(FIG / "hedge_frontier.png", "Average-vs-marginal Pareto frontier per BA as the weight on the average signal goes from 0 to 1 (left); best achievable share of both optima per BA (right).")
 
+    bm = pd.read_csv(RES / "battery_marginal_summary.csv")
+    bo = pd.read_csv(RES / "battery_marginal_split_summary.csv", index_col=0)
+    def bmv(e, on, col):
+        return float(bm[(bm.energy_h.round(3) == round(e, 3)) & (bm.dispatch_on == on)][col].iloc[0])
+    P.p(
+        "**Batteries, and a noise check.** Battery arbitrage is pure incremental load, so the marginal ledger is the natural one. Because an arbitrage LP "
+        "exploits estimation noise (14 of 53 BAs have negative MEF bins), we re-estimate the MEFs on even and odd days separately, dispatch on one half and "
+        f"score on the other. A 10-minute UPS then cuts marginal emissions by a median {bo.loc['battery_0.167h', 'oos_pct_median']:.2f}% out of sample "
+        f"({bo.loc['battery_0.167h', 'ins_pct_median']:.1f}% in sample), against {bmv(1/6, 'average', 'avg_red_median'):.2f}% on the average signal; "
+        f"a 4-hour battery {bo.loc['battery_4h', 'oos_pct_median']:.1f}% against {bmv(4, 'average', 'avg_red_median'):.1f}%. But storage cannot serve both "
+        f"ledgers: average-dispatch raises marginal emissions in {bmv(1/6, 'average', 'bas_raising_marg_pct'):.0f}% of BAs, marginal-dispatch raises the "
+        f"average ledger in {bmv(1/6, 'marginal', 'bas_raising_avg_pct'):.0f}%, and unlike load shifting the w = 0.7 blend does not reconcile them, because "
+        "round-trip losses make every cycle a net cost on the ledger that did not choose it. Out of sample, marginal-optimal plans keep "
+        f"{bo.loc['battery_0.167h', 'retained_pooled'] * 100:.0f}-{bo.loc['battery_4h', 'retained_pooled'] * 100:.0f}% (batteries) and "
+        f"{bo.loc['shift_capped', 'retained_pooled'] * 100:.0f}% (capped shifting) of their in-sample saving, so the marginal savings above are upper bounds.")
+    P.figure(FIG / "battery_marginal.png", "10-minute UPS under marginal accounting: each signal's own optimum (left); average-dispatched versus blended dispatch, scored on both signals (right).")
+
     jt = pd.read_csv(RES / "joint_summary.csv").set_index(["group", "cap"])
     jv = lambda g, c, col: float(jt.loc[(g, c), col])
     real, unl = "real (1/0.70)", "unlimited"
@@ -650,7 +667,8 @@ def build(n: dict) -> None:
         "We solve a cyclic battery-dispatch LP behind a flat load (90% round-trip efficiency, grid draw limited by the cap). A UPS sized for 10 minutes of "
         f"ride-through and fully cycled every day cuts emissions by only {n['bat10_mean']:.2f}% on average ({n['bat10_max']:.1f}% in the best zone), and "
         f"by {n['bat10_res']:.2f}% if half its energy must stay in reserve. Even a dedicated 4-hour battery averages {n['bat4h_mean']:.1f}% "
-        f"(best zone {n['bat4h_max']:.1f}%), less than half-flexible load with 50% headroom ({get(24, 1.5, 'reduction_pct'):.1f}%).")
+        f"(best zone {n['bat4h_max']:.1f}%), less than half-flexible load with 50% headroom ({get(24, 1.5, 'reduction_pct'):.1f}%). "
+        "On a marginal ledger the picture changes (Sec. 5.6).")
     P.figure(FIG / "facility_battery.png", "Facility CO2 reduction from carbon-optimal battery dispatch versus battery size.", width=4.4)
 
     # ------------------------------------------------------------------ 8 LLM

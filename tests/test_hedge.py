@@ -37,3 +37,14 @@ def test_frontier_is_monotone_and_bounded():
 def test_length_mismatch_raises():
     with pytest.raises(ValueError):
         frontier(np.ones(48), np.ones(24), 0.5, 1.4, 24, [0.5])
+
+
+def test_battery_cross_signal_accounting():
+    from carbonshift.facility import battery_shift
+    t = np.arange(24 * 20)
+    avg = 400 + 100 * np.sin(2 * np.pi * t / 24)
+    mar = 600 - 100 * np.sin(2 * np.pi * t / 24)            # exactly opposite timing
+    b = battery_shift(avg, energy_h=2, round_trip_eff=0.9)
+    assert b.net.sum() >= -1e-9                              # losses: you draw at least what you discharge
+    assert (avg * (1 + b.net)).mean() == pytest.approx(b.optimised_g, rel=1e-9)
+    assert saving(mar, b.net, 0.0) < 0                       # charging in avg-clean hours = marginal-dirty hours

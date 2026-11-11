@@ -99,6 +99,8 @@ The median zone needs **+34% headroom to keep half** its ideal 24 h saving, and 
 
 ![Battery shifting](../figures/facility_battery.png)
 
+*Update, marginal accounting (Finding 15, Sec. 5).* For battery arbitrage the marginal signal is the right ledger, and there the same UPS is worth about five times more. Section 5 shows this, with the caveat that it does not carry over to the average ledger.
+
 ## 4. Extension 2: GPU power vs LLM batch size, measured
 
 AI inference is the fastest-growing flexible load, and batch size is its main efficiency knob. I measured it on real hardware: an Apple M4 Pro (20-core GPU) running MLX 0.32 with two 4-bit Qwen2.5 instruct models (1.5B and 7B).
@@ -265,6 +267,19 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ![Hedging frontier](../figures/hedge_frontier.png)
 
+**Batteries under a marginal signal.** A battery's arbitrage is pure incremental load, so marginal accounting is the natural ledger for it. The marginal factors are regression estimates, though: 14 of 53 BAs have negative bins, and an arbitrage LP will exploit noise. So I re-estimated them on even and on odd days separately, dispatched on one half and scored on the other (48 BAs, 90% round trip, median reduction).
+
+| | 10-min UPS | 1 h | 4 h | Capped shifting (F17 setting) |
+|---|---:|---:|---:|---:|
+| Average signal, dispatched on average | 0.10% | 0.60% | 1.9% | n/a |
+| Marginal signal, in-sample | 1.2% | 7.0% | 12.3% | 8.4% |
+| Marginal signal, **out-of-sample** | **0.50%** | **3.0%** | **6.2%** | **5.8%** |
+| Out-of-sample share of in-sample (pooled) | 51% | 52% | 65% | 74% |
+
+**Finding 15: on the marginal ledger a UPS is worth ~5x more, but storage cannot serve both ledgers.** Dispatching on the average signal raises marginal emissions in 81% of BAs, and dispatching on the marginal signal raises average-ledger emissions in 98%. Unlike load shifting, blending (w = 0.7) does not reconcile them: it still raises the average ledger in 42-65% of BAs. The reason is round-trip loss: every cycle draws more energy than it returns, so a cycle that the average signal did not choose is a net cost on the average ledger. The noise check also shows that the marginal-signal savings above (Finding 12, 14) are upper bounds by roughly a quarter.
+
+![Batteries under marginal signals](../figures/battery_marginal.png)
+
 **Related work and novelty.** Google's Carbon-Intelligent Compute System caps flexible capacity hour by hour with virtual capacity curves (Radovanović et al., 2021), and the UMass group studies contention when many jobs pick the same low-carbon window (CarbonFlex 2025; Hanafy et al. 2026). Flex (Zhang et al., ISCA 2021) reclaims reserved power to deploy more servers. I have not found prior work that does any of the following:
 1. derives the shadow carbon price of facility capacity across many grids;
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
@@ -302,7 +317,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 70 tests
+.venv/bin/python -m pytest              # 72 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

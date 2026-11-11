@@ -134,6 +134,7 @@ class BatteryResult:
     baseline_g: float
     optimised_g: float
     throughput_kwh: float  # energy discharged over the year, per kW of mean load
+    net: np.ndarray | None = None  # hourly grid draw minus load (charge - discharge), for cross-signal accounting
 
     @property
     def reduction_pct(self) -> float:
@@ -182,4 +183,4 @@ def battery_shift(
         raise RuntimeError(f"LP failed: {res.message}")
     c, d = res.x[:L], res.x[L : 2 * L]
     optimised = float((ci * (1 + c - d)).sum() / L)
-    return BatteryResult(baseline, optimised, float(d.sum()))
+    return BatteryResult(baseline, optimised, float(d.sum()), c - d)
