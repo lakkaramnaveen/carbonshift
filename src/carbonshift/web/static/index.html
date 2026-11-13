@@ -29,6 +29,7 @@
     <button role="tab" id="tab-capacity" aria-controls="p-capacity" aria-selected="false">Build or not?</button>
     <button role="tab" id="tab-siting" aria-controls="p-siting" aria-selected="false">Siting</button>
     <button role="tab" id="tab-signal" aria-controls="p-signal" aria-selected="false">Which signal?</button>
+    <button role="tab" id="tab-cooling" aria-controls="p-cooling" aria-selected="false">Cooling</button>
   </nav>
 
   <!-- Temporal -->
@@ -236,8 +237,40 @@
     </div>
   </section>
 
+  <section class="panel" id="p-cooling" role="tabpanel" aria-labelledby="tab-cooling" hidden>
+    <div class="card controls">
+      <h2>Clean hours can be hot hours</h2>
+      <p class="hint">Grid draw is IT load times PUE, and cooling works harder when it is hot outside. On solar grids the cleanest hours are also the hottest, so a scheduler that watches only carbon claims more than it saves. Real 2022 weather at one data-centre hub per region; 24 h slack.</p>
+      <div class="field"><label for="k-zone">Grid region (hub)</label><select id="k-zone"></select></div>
+      <div class="field"><label for="k-plant">Cooling plant</label>
+        <select id="k-plant">
+          <option value="hyperscale">Hyperscale: economiser, cooling tower</option>
+          <option value="legacy" selected>Legacy: air-cooled chiller</option>
+        </select></div>
+      <div class="field"><label for="k-flex">Flexible share of load <output id="k-flex-o"></output></label>
+        <input type="range" id="k-flex" min="5" max="95" step="5" value="50"></div>
+      <div class="field"><label for="k-head">Power headroom above average <output id="k-head-o"></output></label>
+        <input type="range" id="k-head" min="5" max="300" step="5" value="20"></div>
+    </div>
+    <div class="results">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Claimed saving</div><div class="value" id="k-k-claim">–</div><div class="sub" id="k-k-claim-s">g per IT kWh</div></div>
+        <div class="kpi"><div class="label">True saving</div><div class="value" id="k-k-true">–</div><div class="sub" id="k-k-true-s">carbon-only schedule</div></div>
+        <div class="kpi"><div class="label">Cooling penalty</div><div class="value" id="k-k-pen">–</div><div class="sub" id="k-k-pen-s">of the claim</div></div>
+        <div class="kpi"><div class="label">Schedule on carbon × PUE</div><div class="value good" id="k-k-aware">–</div><div class="sub" id="k-k-aware-s">true saving</div></div>
+      </div>
+      <div class="card">
+        <h2>Average day: carbon and PUE (% of their own mean, UTC hour)</h2>
+        <div class="legend"><span class="l1">Grid carbon</span><span class="l2">PUE</span></div>
+        <div class="chart" id="k-day"></div>
+        <p class="note" id="k-note"></p>
+      </div>
+      <p class="error" id="k-err" hidden></p>
+    </div>
+  </section>
+
   <footer>
-    Carbon data © Electricity Maps (ODbL), via the EuroSys'24 artifact. Upper bounds assume perfect forecasts and average carbon intensity (except the “Which signal?” tab). US signals derived from EIA-930 (public domain). Nothing you enter is stored.
+    Carbon data © Electricity Maps (ODbL), via the EuroSys'24 artifact. Upper bounds assume perfect forecasts and average carbon intensity (except the “Which signal?” tab). US signals derived from EIA-930 (public domain). Weather from Open-Meteo (ERA5, CC BY 4.0). Nothing you enter is stored.
   </footer>
 </div>
 </body>

@@ -425,6 +425,55 @@ const runSignal = debounce(async () => {
   } catch (e) { if (e.name !== "AbortError") { $("g-err").hidden = false; set("g-err", `Error: ${e.message}`); } }
 }, 150);
 
+// ------------------------------------------------------------------ cooling penalty (F26)
+let COOLING = null;
+async function loadCooling() {
+  try { COOLING = await api("km", "/api/cooling"); }
+  catch (e) { $("k-err").hidden = false; set("k-err", `Cooling results unavailable: ${e.message}`); return; }
+  const sel = $("k-zone");
+  for (const z of COOLING.zones) {
+    const o = document.createElement("option");
+    o.value = z.code; o.textContent = `${z.name} (${z.code}) · ${z.hub}`;
+    sel.appendChild(o);
+  }
+  if (COOLING.zones.some((z) => z.code === "SG")) sel.value = "SG";
+  runCooling();
+}
+
+const runCooling = debounce(async () => {
+  if (!COOLING) return;
+  const flex = +$("k-flex").value, head = +$("k-head").value;
+  set("k-flex-o", `${flex}%`); set("k-head-o", `+${head}%`);
+  busy("p-cooling", true);
+  try {
+    const r = await api("k", "/api/cooling", { zone: $("k-zone").value, plant: $("k-plant").value, flexible_pct: flex, headroom_pct: head });
+    $("k-err").hidden = true;
+    set("k-k-claim", fmt(r.claimed_g, 1));
+    set("k-k-claim-s", `g per IT kWh · carbon saving × PUE ${fmt(r.pue_mean, 2)}`);
+    set("k-k-true", fmt(r.true_carbon_only_g, 1));
+    set("k-k-true-s", "g per IT kWh, counting hourly cooling");
+    set("k-k-pen", r.penalty_pct === null ? "–" : `${fmt(r.penalty_pct, 0)}%`);
+    $("k-k-pen").classList.toggle("bad", (r.penalty_pct ?? 0) >= 10);
+    set("k-k-pen-s", r.law_penalty_pct === null ? "of the claim" : `of the claim · law: ${fmt(r.law_penalty_pct, 0)}%`);
+    set("k-k-aware", fmt(r.true_cooling_aware_g, 1));
+    set("k-k-aware-s", r.cooling_aware_gain_pct === null ? "g per IT kWh, from weather alone"
+      : `g per IT kWh · ${r.cooling_aware_gain_pct >= 0 ? "+" : ""}${fmt(r.cooling_aware_gain_pct, 0)}% vs carbon-only`);
+    const all = [...r.day.ci_pct, ...r.day.pue_pct];
+    const lo = Math.floor(Math.min(...all) / 10) * 10, hi = Math.ceil(Math.max(...all) / 10) * 10;
+    lineChart($("k-day"), {
+      xs: r.day.hour, xTicks: [0, 6, 12, 18, 23], xFmt: (h) => `${h}:00`, yMin: lo, yMax: Math.max(hi, lo + 10),
+      label: "average day of grid carbon and PUE, each as a percent of its mean",
+      series: [{ ys: r.day.ci_pct, cls: "s1", name: "carbon", fmt: (v) => `${fmt(v, 0)}%` },
+               { ys: r.day.pue_pct, cls: "s2", name: "PUE", fmt: (v) => `${fmt(v, 1)}%` }],
+      refY: { value: 100 },
+    });
+    set("k-note", r.flat_signal
+      ? `This grid's carbon signal is flat, so a carbon-only scheduler saves nothing. Moving work to cool hours still saves carbon, because each IT kWh then needs less cooling.`
+      : `PUE ranges ${fmt(r.pue_min, 2)}–${fmt(r.pue_max, 2)} over the year at ${r.hub}. The closed-form law is −ρ·(mean carbon / its hourly spread)·(PUE spread / mean PUE): a small relative carbon swing makes a grid most exposed.`);
+  } catch (e) { if (e.name !== "AbortError") { $("k-err").hidden = false; set("k-err", `Error: ${e.message}`); } }
+  finally { busy("p-cooling", false); }
+}, 150);
+
 // ------------------------------------------------------------------ tabs, theme, boot
 function setupTabs() {
   const tabs = [...document.querySelectorAll("nav.tabs button")];
@@ -490,8 +539,10 @@ async function boot() {
   for (const id of ["s-lat", "s-sort"]) $(id).addEventListener("change", renderSiting);
   $("g-w").addEventListener("input", runSignal);
   $("g-ba").addEventListener("change", runSignal);
+  for (const id of ["k-flex", "k-head"]) $(id).addEventListener("input", runCooling);
+  for (const id of ["k-zone", "k-plant"]) $(id).addEventListener("change", runCooling);
   runTemporal(); runFacility(); runBattery(); runCapacity();
-  loadLLM(); loadSiting(); loadSignal();
+  loadLLM(); loadSiting(); loadSignal(); loadCooling();
 }
 
 document.addEventListener("DOMContentLoaded", boot);
