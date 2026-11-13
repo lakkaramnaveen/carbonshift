@@ -251,6 +251,8 @@
         <input type="range" id="k-flex" min="5" max="95" step="5" value="50"></div>
       <div class="field"><label for="k-head">Power headroom above average <output id="k-head-o"></output></label>
         <input type="range" id="k-head" min="5" max="300" step="5" value="20"></div>
+      <div class="field"><label for="k-tank">Chilled-water tank <output id="k-tank-o"></output></label>
+        <input type="range" id="k-tank" min="0" max="5" step="1" value="0"></div>
     </div>
     <div class="results">
       <div class="kpis">
@@ -264,6 +266,15 @@
         <div class="legend"><span class="l1">Grid carbon</span><span class="l2">PUE</span></div>
         <div class="chart" id="k-day"></div>
         <p class="note" id="k-note"></p>
+      </div>
+      <div class="card" id="k-tank-card" hidden>
+        <h2>The tank: a weather battery</h2>
+        <div class="kpis">
+          <div class="kpi"><div class="label">Tank, dispatched on carbon × 1/COP</div><div class="value good" id="k-t-best">–</div><div class="sub" id="k-t-best-s">g per IT kWh saved</div></div>
+          <div class="kpi"><div class="label">Same tank, on grid carbon only</div><div class="value" id="k-t-carb">–</div><div class="sub" id="k-t-carb-s">g per IT kWh saved</div></div>
+          <div class="kpi"><div class="label">Worth in Li-ion</div><div class="value" id="k-t-batt">–</div><div class="sub" id="k-t-batt-s">kWh of 4 h battery per kWh of tank</div></div>
+        </div>
+        <p class="note">A tank makes cold before it is needed. Cold is cheapest in carbon when the chiller is efficient (cool hours) <em>and</em> the grid is clean. Charging it whenever the grid is clean, as vendors suggest, often means charging in hot midday hours.</p>
       </div>
       <p class="error" id="k-err" hidden></p>
     </div>

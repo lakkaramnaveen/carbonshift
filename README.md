@@ -72,7 +72,7 @@ Every model in this project has knobs you can turn in the browser:
 .venv/bin/carbonshift-web            # then open http://127.0.0.1:8000
 ```
 
-It has eight tabs: **Grid shifting** (job length and slack), **Facility headroom** (flexible share, slack, power cap, a week-by-week schedule, and the closed-form law plotted against the optimiser), **UPS battery** (size, reserve, efficiency), **LLM on GPU** (model, batch, grid region, daily volume), **Build or not?** (design utilisation, N+1 / 2N redundancy, what you would build: value of +1 kW and embodied payback) and **Siting** (32 GCP regions ranked by spatial vs temporal value of capacity), **Which signal?** (47 US balancing authorities: blend average and marginal signals and see what each ledger keeps, plus why batteries cannot serve both) and **Cooling** (47 cloud zones with real weather: claimed vs true saving when PUE follows the weather, the closed-form penalty law, and scheduling on carbon × PUE).
+It has eight tabs: **Grid shifting** (job length and slack), **Facility headroom** (flexible share, slack, power cap, a week-by-week schedule, and the closed-form law plotted against the optimiser), **UPS battery** (size, reserve, efficiency), **LLM on GPU** (model, batch, grid region, daily volume), **Build or not?** (design utilisation, N+1 / 2N redundancy, what you would build: value of +1 kW and embodied payback) and **Siting** (32 GCP regions ranked by spatial vs temporal value of capacity), **Which signal?** (47 US balancing authorities: blend average and marginal signals and see what each ledger keeps, plus why batteries cannot serve both) and **Cooling** (47 cloud zones with real weather: claimed vs true saving when PUE follows the weather, the closed-form penalty law, scheduling on carbon × PUE, and a chilled-water tank dispatched on carbon × 1/COP versus on carbon alone).
 
 **Security design.** The service is read-only and compute-only. It stores no user data and needs no secrets.
 
@@ -141,7 +141,7 @@ scripts/
   build_summary.py             generate the one-page carbonshift_summary.pdf
   build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
   build_workshop_battery.py    generate the second workshop paper (virtual-battery theory)
-tests/          117 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          118 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -152,7 +152,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 117 tests, ~3 s
+.venv/bin/python -m pytest                              # 118 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min

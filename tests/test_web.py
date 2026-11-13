@@ -210,3 +210,18 @@ def test_cooling_endpoint_matches_results(client):
                 {"zone": ZONE, "plant": "legacy", "flexible_pct": 50, "headroom_pct": 0},
                 {"zone": ZONE, "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20, "x": 1}):
         assert client.post("/api/cooling", json=bad).status_code == 422
+
+
+def test_cooling_tank_matches_results(client):
+    d = client.post("/api/cooling", json={"zone": "ZA", "plant": "legacy", "flexible_pct": 50,
+                                          "headroom_pct": 20, "tank_hours": 4}).json()
+    ref = pd.read_csv(server.ROOT / "results" / "thermal_per_zone.csv")
+    ref = ref[(ref.zone == "ZA") & (ref.plant == "legacy") & (ref.capacity_h == 4)].iloc[0]
+    assert d["tank"]["saving_g"] == pytest.approx(ref.tes_saving_g, abs=0.01)
+    assert d["tank"]["carbon_only_saving_g"] == pytest.approx(ref.tes_carbon_only_g, abs=0.01)
+    assert d["tank"]["carbon_only_saving_g"] < 0          # Johannesburg: carbon-led charging backfires
+    assert d["tank"]["battery_saves_little"]
+    none = client.post("/api/cooling", json={"zone": "ZA", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20}).json()
+    assert none["tank"] is None
+    bad = {"zone": "ZA", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20, "tank_hours": 3}
+    assert client.post("/api/cooling", json=bad).status_code == 422

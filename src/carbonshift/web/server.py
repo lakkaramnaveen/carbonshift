@@ -48,6 +48,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from carbonshift.cooling import HUBS, PLANTS, WEATHER, decompose, load_weather, penalty_law, plant_pue
 from carbonshift.data import load_carbon, region_groups
+from carbonshift.thermal import mech_per_heat, tes_shift
 from carbonshift.embodied import LIFETIME, per_kw, payback_years
 from carbonshift.facility import battery_shift, capped_shift
 from carbonshift.redundancy import installed_cap
@@ -79,6 +80,7 @@ SLACK_HOURS = (1, 6, 12, 24, 48, 72, 168, 336, 720, 8760)
 FACILITY_SLACK = (1, 6, 12, 24, 48, 72, 168)
 CURVE_HEADROOM_PCT = (0, 5, 10, 20, 30, 50, 75, 100, 150, 200, 300)
 YEAR = 2022
+TANK_HOURS = (0, 1, 2, 4, 8, 12)
 
 
 # --------------------------------------------------------------------------- data (loaded once)
@@ -193,6 +195,14 @@ class CoolingIn(Strict):
     plant: Literal["hyperscale", "legacy"]
     flexible_pct: int = Field(ge=5, le=95)
     headroom_pct: int = Field(ge=5, le=300)
+    tank_hours: int = Field(default=0)
+
+    @field_validator("tank_hours")
+    @classmethod
+    def _tank(cls, v: int) -> int:
+        if v not in TANK_HOURS:
+            raise ValueError(f"tank_hours must be one of {TANK_HOURS}")
+        return v
 
     @field_validator("zone")
     @classmethod
@@ -328,7 +338,26 @@ def weather() -> pd.DataFrame | None:
 
 
 @lru_cache(maxsize=256)
-def compute_cooling(zone: str, plant: str, flex_pct: int, headroom_pct: int) -> dict:
+def compute_tank(zone: str, plant: str, hours: int) -> dict | None:
+    """Chilled-water tank (F27): carbon-optimal dispatch on c x 1/COP vs dispatch on grid carbon only."""
+    if hours == 0:
+        return None
+    pl = PLANTS[plant]
+    ci = carbon()[zone].to_numpy()
+    m = mech_per_heat(weather()[f"{zone}|{'wb' if pl.wet_bulb else 'db'}"].to_numpy(), pl)
+    facility = float((ci * (1 + pl.fixed + pl.fans + m)).mean())
+    best = tes_shift(ci, m, hours)
+    q = tes_shift(ci, np.full_like(m, m.mean()), hours).produced
+    carbon_only = best.baseline_g - float((ci * m * q).mean())
+    batt = spread_saving_per_kwh(ci, 4.0, 0.90)
+    return {"hours": hours, "saving_g": _r(best.saving_g), "saving_pct": _r(best.saving_g / facility * 100, 2),
+            "carbon_only_saving_g": _r(carbon_only),
+            "battery_kwh_per_tank_kwh": _r(best.saving_g / hours / batt, 2) if batt > 0.05 else None,
+            "battery_saves_little": bool(batt <= 0.05 or best.saving_g / hours / batt > 1)}
+
+
+@lru_cache(maxsize=256)
+def compute_cooling(zone: str, plant: str, flex_pct: int, headroom_pct: int, tank_hours: int = 0) -> dict:
     """Cooling penalty (F26): true vs claimed saving when PUE follows the weather."""
     ci = carbon()[zone].to_numpy()
     p = plant_pue(weather(), zone, plant)
@@ -349,6 +378,7 @@ def compute_cooling(zone: str, plant: str, flex_pct: int, headroom_pct: int) -> 
         "law_penalty_pct": _r(law * 100, 1) if math.isfinite(law) and claimed > 0.5 else None,
         "cooling_aware_gain_pct": _r((true_w / true_c - 1) * 100, 1) if true_c > 0.5 else None,
         "flat_signal": bool(claimed <= 0.5),
+        "tank": compute_tank(zone, plant, tank_hours),
         "day": {"hour": list(range(24)), "ci_pct": [_r(v / day_c.mean() * 100, 1) for v in day_c],
                 "pue_pct": [_r(v / day_p.mean() * 100, 2) for v in day_p],
                 "ci": [_r(v, 0) for v in day_c], "pue": [_r(v, 3) for v in day_p]},
@@ -580,13 +610,13 @@ def create_app() -> FastAPI:
         names = {z["code"]: z["name"] for z in zones_meta()}
         zones = sorted(({"code": z, "name": names.get(z, z), "hub": HUBS[z][0]} for z in HUBS if z in ZONE_CODES),
                        key=lambda d: d["name"])
-        return {"zones": zones, "plants": list(PLANTS)}
+        return {"zones": zones, "plants": list(PLANTS), "tank_hours": TANK_HOURS}
 
     @app.post("/api/cooling")
     def cooling(body: CoolingIn):
         if weather() is None:
             raise HTTPException(404, "weather data not available")
-        return run(compute_cooling, body.zone, body.plant, body.flexible_pct, body.headroom_pct)
+        return run(compute_cooling, body.zone, body.plant, body.flexible_pct, body.headroom_pct, body.tank_hours)
 
     @app.get("/api/siting")
     def siting():

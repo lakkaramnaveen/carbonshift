@@ -443,10 +443,11 @@ async function loadCooling() {
 const runCooling = debounce(async () => {
   if (!COOLING) return;
   const flex = +$("k-flex").value, head = +$("k-head").value;
-  set("k-flex-o", `${flex}%`); set("k-head-o", `+${head}%`);
+  const tank = COOLING.tank_hours[+$("k-tank").value];
+  set("k-flex-o", `${flex}%`); set("k-head-o", `+${head}%`); set("k-tank-o", tank ? `${tank} h` : "none");
   busy("p-cooling", true);
   try {
-    const r = await api("k", "/api/cooling", { zone: $("k-zone").value, plant: $("k-plant").value, flexible_pct: flex, headroom_pct: head });
+    const r = await api("k", "/api/cooling", { zone: $("k-zone").value, plant: $("k-plant").value, flexible_pct: flex, headroom_pct: head, tank_hours: tank });
     $("k-err").hidden = true;
     set("k-k-claim", fmt(r.claimed_g, 1));
     set("k-k-claim-s", `g per IT kWh · carbon saving × PUE ${fmt(r.pue_mean, 2)}`);
@@ -467,6 +468,19 @@ const runCooling = debounce(async () => {
                { ys: r.day.pue_pct, cls: "s2", name: "PUE", fmt: (v) => `${fmt(v, 1)}%` }],
       refY: { value: 100 },
     });
+    $("k-tank-card").hidden = !r.tank;
+    if (r.tank) {
+      set("k-t-best", fmt(r.tank.saving_g, 2));
+      set("k-t-best-s", `g per IT kWh · ${fmt(r.tank.saving_pct, 2)}% of facility emissions`);
+      set("k-t-carb", fmt(r.tank.carbon_only_saving_g, 2));
+      $("k-t-carb").classList.toggle("bad", r.tank.carbon_only_saving_g < 0);
+      set("k-t-carb-s", r.tank.carbon_only_saving_g < 0 ? "g per IT kWh: raises emissions" : "g per IT kWh saved");
+      set("k-t-batt", r.tank.battery_kwh_per_tank_kwh === null ? "n/a" : fmt(r.tank.battery_kwh_per_tank_kwh, 2));
+      set("k-t-batt-s", r.tank.battery_kwh_per_tank_kwh === null
+        ? "this grid's daily swing does not cover battery losses; the tank still saves"
+        : r.tank.battery_saves_little ? "kWh of 4 h battery per kWh of tank: batteries gain little on this grid"
+        : "kWh of 4 h battery per kWh of tank");
+    }
     set("k-note", r.flat_signal
       ? `This grid's carbon signal is flat, so a carbon-only scheduler saves nothing. Moving work to cool hours still saves carbon, because each IT kWh then needs less cooling.`
       : `PUE ranges ${fmt(r.pue_min, 2)}–${fmt(r.pue_max, 2)} over the year at ${r.hub}. The closed-form law is −ρ·(mean carbon / its hourly spread)·(PUE spread / mean PUE): a small relative carbon swing makes a grid most exposed.`);
@@ -539,7 +553,7 @@ async function boot() {
   for (const id of ["s-lat", "s-sort"]) $(id).addEventListener("change", renderSiting);
   $("g-w").addEventListener("input", runSignal);
   $("g-ba").addEventListener("change", runSignal);
-  for (const id of ["k-flex", "k-head"]) $(id).addEventListener("input", runCooling);
+  for (const id of ["k-flex", "k-head", "k-tank"]) $(id).addEventListener("input", runCooling);
   for (const id of ["k-zone", "k-plant"]) $(id).addEventListener("change", runCooling);
   runTemporal(); runFacility(); runBattery(); runCapacity();
   loadLLM(); loadSiting(); loadSignal(); loadCooling();
