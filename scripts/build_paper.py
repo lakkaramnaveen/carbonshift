@@ -718,6 +718,28 @@ def build(n: dict) -> None:
         "With real load the values are biased, but flexible shares remain perfectly ordered.")
     P.figure(FIG / "sidechannel.png", "Left: detection AUC of carbon-aware scheduling from the meter and the public signal (solid: real Google load; dashed: flat). Right: saving kept by schedulers that try to hide.")
 
+    cs = pd.read_csv(RES / "cooling_summary.csv", index_col=0)["value"]
+    cz = pd.read_csv(RES / "cooling_per_zone.csv")
+    cz = cz[(cz.phi == 0.5) & (cz["head"] == 0.2)]
+    top = cz[cz.plant == "legacy"].sort_values("penalty_pct_of_claim", ascending=False).iloc[0]
+    flatmax = cz[cz.zone.isin(["HK", "ID"])].groupby("plant").true_cooling_aware_g.max()
+    P.h("5.10 The cooling penalty", 2)
+    P.p(
+        "Grid draw is IT power times PUE, and PUE rises with outdoor temperature, so the carbon cost of an IT kWh is c·PUE. The true saving of a draw d is "
+        "−cov(c·PUE, d); an operator who multiplies a carbon-only saving by the annual PUE claims −mean(PUE)·cov(c, d). We take the "
+        f"{cs['zones']:.0f} zones that host cloud regions, hourly 2022 weather at one hub each (Open-Meteo/ERA5), and two first-principles cooling plants: "
+        f"hyperscale (economiser, wet-bulb heat rejection, median PUE {cs['hyperscale_pue_mean_median']:.2f}) and legacy (air-cooled, median {cs['legacy_pue_mean_median']:.2f}). "
+        f"In {cs['legacy_share_zones_clean_hours_hot'] * 100:.0f}% of zones the daily carbon and PUE profiles are anti-correlated: clean hours are hot. "
+        f"With half the load flexible and +20% headroom, the claim exceeds the true saving by {cs['hyperscale_phi0.5_h0.2_penalty_pct_pooled']:.1f}% (hyperscale) and "
+        f"{cs['legacy_phi0.5_h0.2_penalty_pct_pooled']:.1f}% (legacy) pooled, by over 10% in {cs['legacy_phi0.5_h0.2_zones_penalty_over_10pct']:.0f} zones for legacy plants, "
+        f"and by {top.penalty_pct_of_claim:.0f}% in {top.hub}. A closed form, penalty/claim ≈ −ρ·(c̄/σ_c)·(σ_PUE/P̄) on within-day hourly variation, "
+        f"predicts it (R² {cs['legacy_phi0.5_h0.2_law_r2']:.2f} legacy, {cs['hyperscale_phi0.5_h0.2_law_r2']:.2f} hyperscale). The factor c̄/σ_c, the inverse "
+        "coefficient of variation of carbon, makes dirty grids with small relative swings the most exposed. Scheduling on c·PUE recovers "
+        f"{cs['hyperscale_phi0.5_h0.2_recovered_pct_pooled']:.1f}% and {cs['legacy_phi0.5_h0.2_recovered_pct_pooled']:.1f}% more true saving pooled, and on the flat "
+        f"grids of Hong Kong and Jakarta, where carbon-only scheduling saves nothing, weather alone saves up to {flatmax.get('legacy', 0):.1f} g/kWh. "
+        "Cooling-aware workload planning at single sites with on-site solar is established (Liu et al., SIGMETRICS 2012); the grid-carbon accounting gap and its closed form are new here.")
+    P.figure(FIG / "cooling.png", "Left: cooling penalty from the LP versus the closed-form law (half flexible, +20% headroom). Right: claimed versus true saving of a carbon-only scheduler per zone.")
+
     P.h("6 The Redundancy Dividend")
     P.p(
         "Tier-rated facilities already own idle electrical capacity. Flex [3] showed that this reserve can host software-redundant work and be reclaimed "
