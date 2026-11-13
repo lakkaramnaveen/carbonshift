@@ -743,6 +743,22 @@ def build(n: dict) -> None:
         "so sites can be screened from public data before any scheduling.")
     P.figure(FIG / "cooling.png", "Left: cooling penalty from the LP versus the closed-form law (half flexible, +20% headroom). Right: claimed versus true saving of a carbon-only scheduler per zone.")
 
+    th = pd.read_csv(RES / "thermal_summary.csv", index_col=0)["value"]
+    P.h("5.11 The third battery: chilled-water storage", 2)
+    P.p(
+        "A chilled-water tank lets the plant make cold before it is needed. Cold costs m(t) = 1/COP units of electricity (zero under free cooling), so its "
+        "carbon cost is c·m, and a cyclic LP per zone (tank of 1-12 h of heat load, chiller 1.5× peak, 1%/day loss) dispatches it on that product. "
+        f"A 4 h tank cuts facility emissions by a median {th['hyperscale_cap4_saving_pct_median']:.2f}% (hyperscale) and {th['legacy_cap4_saving_pct_median']:.2f}% (legacy). "
+        f"Dispatching on the weather alone keeps {th['hyperscale_share_weather_only_pooled'] * 100:.0f}% and {th['legacy_share_weather_only_pooled'] * 100:.0f}% of that; "
+        f"dispatching on grid carbon alone, as chilled-water storage is marketed for data centres, keeps {th['hyperscale_share_carbon_only_pooled'] * 100:.0f}% and "
+        f"{th['legacy_share_carbon_only_pooled'] * 100:.0f}%, and raises emissions in {th['hyperscale_zones_carbon_only_raises']:.0f} and {th['legacy_zones_carbon_only_raises']:.0f} "
+        f"of {th['zones']:.0f} zones, because clean midday hours are when chillers are least efficient. One kWh of tank saves as much as "
+        f"{th['hyperscale_cap4_battery_kwh_per_tes_kwh_median']:.2f} (hyperscale) or {th['legacy_cap4_battery_kwh_per_tes_kwh_median']:.2f} (legacy) kWh of 4 h Li-ion battery, "
+        f"and on top of cooling-aware IT shifting it adds its full saving (pooled ratio {th['legacy_stack_ratio_pooled']:.2f}), worth "
+        f"{th['hyperscale_tes_over_it_pooled'] * 100:.0f}-{th['legacy_tes_over_it_pooled'] * 100:.0f}% of the IT-shifting saving. The three batteries rank: flexible IT load "
+        "(lossless, free), then cooling storage dispatched on c × COP, then electric batteries.")
+    P.figure(FIG / "thermal.png", "Left: facility emissions cut by a chilled-water tank versus its size (median and interquartile range over 47 zones). Right: share of the tank's saving kept when it is dispatched on grid carbon only or on weather only.")
+
     P.h("6 The Redundancy Dividend")
     P.p(
         "Tier-rated facilities already own idle electrical capacity. Flex [3] showed that this reserve can host software-redundant work and be reclaimed "
