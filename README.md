@@ -51,7 +51,7 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 - **The storage exchange rate (F23).** Priced against a real 4 h, 90%-efficient battery, a half-flexible facility with +20% headroom is worth a median 4.3 kWh of battery per kW of load (11 kWh uncapped), and building that battery would cost 8-55× more embodied carbon than the headroom (16× or more at +20%). A closed-form spread law gives the battery side (R² 0.993).
 - **Carbon-aware computing saturates, and power caps stop herding (F24).** Against real CAISO curtailment (2021-2024), the value of carbon-awareness peaks when a new flexible fleet reaches about 0.5-2 GW and vanishes near 8 GW, because only curtailed renewables are free at the margin. Without a power cap, uncoordinated carbon-aware facilities herd into the same hour and *raise* emissions by up to 198 kt/yr; with a +20% cap the herd matches the coordinated optimum (97-100%).
 - **The power meter gives carbon-aware scheduling away (F25).** Carbon saved equals −cov(carbon signal, draw), so saving carbon *is* leaving a signature. From one week of meter data and the public signal, an observer detects real-time carbon-aware scheduling with AUC 0.92 on realistic load, and the meter reads out the virtual battery (flexible share, slack, headroom). Adding noise does not hide it; scheduling on a monthly time-of-day profile does (AUC 0.52 at two weeks) and keeps 70% of the saving.
-- **Clean hours are hot, so carbon-aware savings are overstated (F26).** Grid draw is IT × PUE, and PUE rises with outdoor temperature. With real 2022 weather at 47 cloud zones, a carbon-only scheduler's claimed saving is 2-3% too high pooled at hyperscale plants and 7-8% at legacy ones, up to 61% in Singapore. A closed form, penalty/claim ≈ −ρ·(c̄/σ_c)·(σ_PUE/P̄), predicts it (R² 0.77-0.98). Scheduling on c·PUE recovers part of it and even saves carbon on flat grids (Hong Kong, Jakarta).
+- **Clean hours are hot, so carbon-aware savings are overstated (F26).** Grid draw is IT × PUE, and PUE rises with outdoor temperature. With real 2022 weather at 47 cloud zones, a carbon-only scheduler's claimed saving is 2-3% too high pooled at hyperscale plants and 7-8% at legacy ones, up to 61% in Singapore. A closed form, penalty/claim ≈ −ρ·(c̄/σ_c)·(σ_PUE/P̄), predicts it (R² 0.77-0.98). Scheduling on c·PUE recovers part of it and even saves carbon on flat grids (Hong Kong, Jakarta). It holds for 2020-2022, and last year's law flags 62 of 67 zone-years with a >10% penalty.
 - **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
 - **Forecast error** (5–15% MAPE) and power caps compound almost independently.
 - **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
@@ -131,13 +131,14 @@ scripts/
   waterfill_experiments.py     test the closed-form laws against the LP
   sidechannel_experiments.py   detecting carbon-aware scheduling from the power meter
   cooling_experiments.py       cooling penalty of carbon-aware scheduling on 47 zones with real weather
+  cooling_years.py             F26 across 2020-2022, and the law predicting next year out of sample
   curtailment_experiments.py   saturation and herding of a growing fleet against CAISO curtailment
   exchange_experiments.py      flexibility vs real 4 h batteries: exchange rate and embodied carbon
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
   build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
   build_workshop_battery.py    generate the second workshop paper (virtual-battery theory)
-tests/          109 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          112 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -148,7 +149,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 109 tests, ~3 s
+.venv/bin/python -m pytest                              # 112 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min

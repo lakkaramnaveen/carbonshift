@@ -719,6 +719,7 @@ def build(n: dict) -> None:
     P.figure(FIG / "sidechannel.png", "Left: detection AUC of carbon-aware scheduling from the meter and the public signal (solid: real Google load; dashed: flat). Right: saving kept by schedulers that try to hide.")
 
     cs = pd.read_csv(RES / "cooling_summary.csv", index_col=0)["value"]
+    cy = pd.read_csv(RES / "cooling_years_summary.csv", index_col=0)["value"]
     cz = pd.read_csv(RES / "cooling_per_zone.csv")
     cz = cz[(cz.phi == 0.5) & (cz["head"] == 0.2)]
     top = cz[cz.plant == "legacy"].sort_values("penalty_pct_of_claim", ascending=False).iloc[0]
@@ -737,7 +738,9 @@ def build(n: dict) -> None:
         "coefficient of variation of carbon, makes dirty grids with small relative swings the most exposed. Scheduling on c·PUE recovers "
         f"{cs['hyperscale_phi0.5_h0.2_recovered_pct_pooled']:.1f}% and {cs['legacy_phi0.5_h0.2_recovered_pct_pooled']:.1f}% more true saving pooled, and on the flat "
         f"grids of Hong Kong and Jakarta, where carbon-only scheduling saves nothing, weather alone saves up to {flatmax.get('legacy', 0):.1f} g/kWh. "
-        "Cooling-aware workload planning at single sites with on-site solar is established (Liu et al., SIGMETRICS 2012); the grid-carbon accounting gap and its closed form are new here.")
+        "Cooling-aware workload planning at single sites with on-site solar is established (Liu et al., SIGMETRICS 2012); the grid-carbon accounting gap and its closed form are new here. "
+        f"The result holds for 2020-2022, and the law evaluated on the previous year predicts the next year's penalty (legacy, +20%: R² {cy['legacy_h0.2_oos_law_2021_to_2022_r2']:.2f} for 2021 to 2022), "
+        "so sites can be screened from public data before any scheduling.")
     P.figure(FIG / "cooling.png", "Left: cooling penalty from the LP versus the closed-form law (half flexible, +20% headroom). Right: claimed versus true saving of a carbon-only scheduler per zone.")
 
     P.h("6 The Redundancy Dividend")

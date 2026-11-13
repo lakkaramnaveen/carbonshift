@@ -80,3 +80,16 @@ def test_flat_grid_still_saves_by_weather():
 def test_decompose_rejects_unnormalised_draw():
     with pytest.raises(ValueError):
         decompose(np.ones(24), np.ones(24), np.full(24, 2.0))
+
+
+@pytest.mark.parametrize("year", [2020, 2021, 2022])
+def test_weather_aligns_with_carbon(year):
+    from carbonshift.cooling import HUBS, load_weather
+    from carbonshift.data import load_carbon
+
+    w, ci = load_weather(year), load_carbon(year)
+    assert len(w) == len(ci)
+    assert (w.index == ci.index).all()                 # both hourly UTC, same stamps
+    assert w.notna().all().all()
+    for z in HUBS:
+        assert (w[f"{z}|wb"] <= w[f"{z}|db"] + 0.05).all()   # wet bulb never above dry bulb
