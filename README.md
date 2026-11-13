@@ -141,6 +141,7 @@ scripts/
   build_summary.py             generate the one-page carbonshift_summary.pdf
   build_workshop.py            generate the two-column workshop paper carbonshift_workshop.pdf
   build_workshop_battery.py    generate the second workshop paper (virtual-battery theory)
+  build_workshop_cooling.py    generate the third workshop paper (cooling penalty, chilled-water storage)
 tests/          118 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
