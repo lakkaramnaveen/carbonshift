@@ -395,6 +395,40 @@ Novelty: cooling-aware workload management is established for single sites with 
 
 So the three batteries rank clearly: shifting flexible IT load first (lossless, free, F22), then cooling storage for older plants in hot climates, dispatched on c × COP, then electric batteries (F23). Prior work: TES for data centres is studied for cost and peak shaving (e.g. Zheng et al., HPCA 2014; UMass e-Energy 2016 dispatches on price) and promoted by vendors for carbon; I found no carbon analysis that separates its weather and grid drivers or prices it against electric storage and IT shifting. *Limitations:* tank sized in heat-hours with no embodied carbon counted; chiller capacity and losses assumed; hourly steady-state plant; the economiser is assumed able to charge the tank. Outputs: `results/thermal_*.csv`, `figures/thermal.png`.
 
+## 5g. Who bears the cost? Location-based savings are mostly transfers
+
+Every result above asks how much carbon a schedule saves. This section asks *whose* carbon it saves.
+
+**The identity.** Location-based Scope 2 accounting (the GHG Protocol default) charges each consumer the hour's average intensity c_t = E_t / D_t. Those charges sum to the grid's emissions, so when one load moves work in time, the change in its own attribution plus the change in everyone else's equals the change in real emissions, exactly. For a small load whose extra kWh is served at the marginal rate m_t, the part that lands on others is
+
+    transfer = Σ_t (m_t − c_t) ΔL_t = reported saving − real saving.
+
+So the average rate is a marginal charge plus an *hourly residual* r_t = c_t − m_t. In clean hours with gas at the margin, r_t is strongly negative: the accounting subsidises load that the grid actually serves with fossil energy, and other consumers' inventories pay for the subsidy.
+
+**Finding 23: on most US grids, most of a location-based carbon saving is moved onto other consumers, and the truly beneficial schedule is booked as an increase.** 48 balancing authorities (EIA-930 2022), φ = 0.5, cap 1/0.70, 24 h slack (as F17):
+
+| Average-optimised schedule (what location-based accounting rewards) | Value |
+|---|---|
+| Reported saving, median BA | 12.1 g/kWh |
+| Real cut in grid emissions, median BA | 0.3 g/kWh |
+| Share of the reported saving moved onto other consumers, pooled / median BA | **83% / 97%** |
+| BAs where the transfer exceeds the claim (grid emissions rise) | 21 of 48 |
+| Same, scored on split-half marginal factors (noise check), pooled | 83% |
+
+| Marginal-optimal schedule (held-out MEFs) | Value |
+|---|---|
+| Real cut, median BA | 19.5 g/kWh (11× the average plan's, pooled) |
+| Share of it that location-based books recognise, pooled | **3.4%** |
+| BAs where location-based books record the real cut as an increase | 22 of 48 |
+
+![Incidence](../figures/incidence.png)
+
+**A fix borrowed from tariff design.** A two-part rule keeps the marginal charge and allocates the residual by *annual* energy instead of hour by hour: a_i = Σ_t m_t L_it + ρ Σ_t L_it, with ρ = (E − Σ m_t D_t) / Σ D_t. Like location-based accounting, it sums to the grid's emissions (so it answers Electricity Maps' objection that marginal accounting over-counts). Unlike it, an energy-preserving shift changes a consumer's attribution by exactly Σ m_t ΔL_t, its real effect, and leaves every other consumer's inventory unchanged (exact for linear response; tested). It is Coase's two-part tariff applied to carbon: price the margin, recover the rest with a charge the consumer cannot move by rescheduling.
+
+**Independent check on a structural margin (CAISO 2021-2024).** A new fleet is added to CAISO; its load is served first by curtailed renewables and otherwise by gas at 490 g/kWh (the F24 model), and attributions are computed exactly at finite size. The budget identity holds to rounding; two-part claims are within 1.3 g/kWh of the real effect in all 16 cases. The incidence is signed. At 100 MW the average-signal herd *under*-claims (real 22-29 g/kWh, reported 15-20) and others gain, because the clean hours it uses have curtailment (m < c). At 1 GW the curtailment is exhausted, the real cut falls to 4-11 g/kWh and 41-68% of the reported saving is moved onto other consumers. EIA's CISO, with a statistical margin, also shows a small negative transfer (−5%): California is the exception, not the rule.
+
+*Why it matters.* The field's debate is framed as "which signal is right". The identity reframes it: location-based scheduling is not a noisy estimate of a reduction but, on most US grids, a reallocation of who is billed for the same emissions, and it penalises the schedule that does reduce them. *Prior work:* Gorka, Rhodes & Roald (ElectricityEmissions.jl, 2024) show on test systems that average-signal shifting can lower a consumer's allocation while raising system emissions; WattTime's impact accounting and the GHG Protocol's 2025-26 consultation propose marginal charges. New here: the incidence measured on 48 real grids, the hourly-residual decomposition, and a budget-balanced two-part rule. *Limitations:* season × hour MEFs (2022, US only); first order for small loads; imports ignored; the two-part rule needs an agreed marginal signal, and its residual allocation is a policy choice. Outputs: `results/incidence_*.csv`, `figures/incidence.png`.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
@@ -427,7 +461,7 @@ So the three batteries rank clearly: shifting flexible IT load first (lossless, 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 84 tests
+.venv/bin/python -m pytest              # 124 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`
