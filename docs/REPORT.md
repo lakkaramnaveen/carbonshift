@@ -454,7 +454,9 @@ quadratic in the carbon variation. This is the mathematics of Harberger's deadwe
 
 Medians over 369 zone-years. Even at the same *speed* headroom (+20% speed, i.e. +73% power for α = 3), speed scaling saves a median 0.78%, about a third of deferral at +20% power. The best zone-year (Bornholm, 2020) reaches 16.8% for α = 3 but 54% for deferral; 21% of zone-years exceed 2% for α = 3, against 97% for deferral. Only on the most variable grids (within-day CV above about 0.35) does uncapped speed scaling catch up with deferral at a +20% cap (figure). Three zone-years per year have a constant signal (HK, ID, US-NW-SCL) and save nothing with either knob.
 
-![Speed scaling vs deferral](../figures/smoothknob.png) Headroom is almost worthless to a smooth knob (0.79% uncapped vs 0.70% at +20%): its optimum rarely reaches the cap, so the shadow price of capacity (F7) is near zero for it.
+![Speed scaling vs deferral](../figures/smoothknob.png)
+
+Headroom is almost worthless to a smooth knob (0.79% uncapped vs 0.70% at +20%): its optimum rarely reaches the cap, so the shadow price of capacity (F7) is near zero for it.
 
 **Checks.** (1) The bisection solver matches a generic constrained solver (SLSQP) to 1e-12 pp on 200 random zone-days and in the tests. (2) The uncapped power-mean closed form equals the optimiser exactly (max difference 0.000 pp over 369 zone-years). (3) The quadratic law has R² 0.93 / 0.96 / 0.98 for α = 1.5 / 2 / 3 (median ratio 0.99). (4) α → 1 under a speed cap reproduces water-filling deferral (tested). (5) Daily-block deferral underestimates the sliding-window LP at tight caps (F22; e.g. DE at +20%: 3.4% vs 6.7%), so the gap between the two knobs is if anything larger.
 
