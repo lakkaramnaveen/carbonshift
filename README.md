@@ -44,7 +44,7 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 
 **Robustness.** All facility findings hold for 2020, 2021 and 2022. The carbon value of a kW of headroom rose 17% over those years. Every finding is tracked in [docs/RESEARCH_LOG.md](docs/RESEARCH_LOG.md).
 
-**Further findings** (F11–F28 in the log):
+**Further findings** (F11–F29 in the log):
 
 - **A closed-form law replaces the LP (F21).** With 24 h slack, flexible work water-fills each day's cleanest hours. The share of the ideal saving kept depends only on headroom per unit of flexible load, h/φ (an exact theorem). The saving is φ·A·sinc(πφ/(φ+h)), where A is the daily swing (R² 0.968 against 4,680 LP solves). The value of +1 kW is a 'water-level' area (R² 0.981 against LP shadow prices). This derives the 13× peak, the headroom curve and the swing law from first principles.
 - **Flexible load under a cap *is* a lossless battery (F22)**, with energy s·φ, discharge power φ and charge power h, which is exact up to boundary terms. It explains why a 10-minute UPS is negligible (1/72 of the virtual energy, plus losses), why tight caps plan beyond the slack (horizon s·φ/h), and why blending signals works for load but not for real batteries: a *lossless* battery blends harmlessly in all 48 BAs.
@@ -54,6 +54,7 @@ Going from batch 1 to batch 32 raises throughput 6.5× for only 1.5× more power
 - **Clean hours are hot, so carbon-aware savings are overstated (F26).** Grid draw is IT × PUE, and PUE rises with outdoor temperature. With real 2022 weather at 47 cloud zones, a carbon-only scheduler's claimed saving is 2-3% too high pooled at hyperscale plants and 7-8% at legacy ones, up to 61% in Singapore. A closed form, penalty/claim ≈ −ρ·(c̄/σ_c)·(σ_PUE/P̄), predicts it (R² 0.77-0.98). Scheduling on c·PUE recovers part of it and even saves carbon on flat grids (Hong Kong, Jakarta). It holds for 2020-2022, and last year's law flags 62 of 67 zone-years with a >10% penalty.
 - **A chilled-water tank is a weather battery, not a carbon battery (F27).** A 4 h tank cuts facility emissions by 0.2-0.7%. Dispatched on grid carbon alone, as vendors suggest, it keeps 1-26% of that and raises emissions in 9-16 of 47 zones; dispatched on carbon × chiller efficiency it stacks fully on top of IT shifting. One kWh of tank is worth 0.08-0.31 kWh of Li-ion battery.
 - **Who bears the cost: location-based carbon savings are mostly moved, not cut (F28).** Location-based accounting sums to the grid total, so a shifter's reported saving = its real effect + emissions moved onto other consumers, with the moved part Σ(m−c)ΔL. On 48 US balancing authorities, 83% (pooled; median 97%) of what an average-signal scheduler reports is transfer, and in 21 the grid emits more. The marginal-optimal plan cuts 11× more real carbon, but location-based books recognise 3% of it and record an increase in 22 of 48 BAs. A two-part rule (marginal charge + residual by annual energy) is just as budget balanced and reports exactly the real effect. California (curtailment at the margin) is the signed exception.
+- **Not every knob is a battery: the carbon knob is *when*, not *how fast* (F29).** Deferral is linear in utilisation, so its saving is first order in the grid's swing. Carbon-aware speed scaling (DVFS, GPU power limits) has convex power P = s^α, so its saving is the gap between the arithmetic mean and the power mean of order −1/(α−1) of the day's carbon: second order, ≈ (χ/2)·CV², like a Harberger triangle. On 123 zones × 3 years, α = 3 speed scaling saves a median 0.79% even with unlimited power, against 14.6% for deferring the same work (0.70% vs 2.5% at a +20% cap); savings scale as CV^1.99 vs CV^1.06. Discrete knobs (LLM batch sizes, F14) are piecewise linear and behave like deferral.
 - **Real utilisation.** Google's PowerData2019 domains run at a median 70% of capacity (+42% headroom), which keeps **54%** of the ideal saving. The daily load shape barely matters.
 - **Forecast error** (5–15% MAPE) and power caps compound almost independently.
 - **What sets the value of capacity is the grid's absolute daily swing, not its level.** Shadow price vs daily std: Spearman 0.993; predictor ≈ 4.83·σ^1.12 kg/kW-yr (R² 0.96). Affine invariance is proved and tested.
@@ -110,6 +111,7 @@ src/carbonshift/
   curtailment.py       fleet-scale model: curtailed renewables are free, herd vs coordinated fleet, CAISO loader
   exchange.py          storage exchange rate: daily spread law for real batteries, kWh per kW of flexibility
   incidence.py         who bears the cost: location-based vs two-part attribution, transfer identity
+  smoothknob.py        carbon-aware speed scaling (DVFS) vs deferral: power-mean law, second-order (Harberger) law
   hedge.py             average-vs-marginal Pareto frontier via blended objectives
   llm_batching.py      static vs carbon-aware batching under a latency budget (Lagrangian, LP-checked)
   power.py             sudo-free Apple Silicon power sampling via macmon
@@ -139,6 +141,7 @@ scripts/
   thermal_experiments.py       chilled-water tank as a third battery: drivers, exchange rate, stacking
   curtailment_experiments.py   saturation and herding of a growing fleet against CAISO curtailment
   incidence_experiments.py     incidence of carbon-aware shifting on other consumers (EIA-930, CAISO exact)
+  smoothknob_experiments.py    speed scaling vs deferral on 123 zones x 3 years (F29)
   exchange_experiments.py      flexibility vs real 4 h batteries: exchange rate and embodied carbon
   build_paper.py               generate carbonshift_paper.docx from results/*.csv
   build_summary.py             generate the one-page carbonshift_summary.pdf
@@ -146,7 +149,7 @@ scripts/
   build_workshop_battery.py    generate the second workshop paper (virtual-battery theory)
   build_workshop_cooling.py    generate the third workshop paper (cooling penalty, chilled-water storage)
   build_workshop_incidence.py  generate the fourth workshop paper (who bears the cost; two-part accounting)
-tests/          124 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
+tests/          132 tests: reference-loop and brute-force-LP equivalence, invariants, API behaviour and security
 data/           carbon traces + metadata (see data/README.md for sources and licences)
 results/        every number in the report, as CSV
 figures/        every figure in the report
@@ -157,7 +160,7 @@ docs/REPORT.md  the write-up
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-.venv/bin/python -m pytest                              # 124 tests, ~3 s
+.venv/bin/python -m pytest                              # 132 tests, ~3 s
 .venv/bin/python scripts/reproduce.py                   # ~20 s
 .venv/bin/python scripts/facility_experiments.py        # ~80 s on 14 cores
 .venv/bin/python scripts/redundancy_experiments.py      # ~2 min

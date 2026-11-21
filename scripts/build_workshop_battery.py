@@ -37,6 +37,9 @@ REFS = [
     "H. Hao, B. M. Sanandaji, K. Poolla, T. L. Vincent. Aggregate Flexibility of Thermostatically Controlled Loads. IEEE Trans. Power Syst. 30(1), 2015.",
     "E. Hittinger, I. L. Azevedo. Bulk Energy Storage Increases United States Electricity System Emissions. Environ. Sci. Technol. 49(5), 2015.",
     "Electricity Maps. Hourly carbon-intensity data, 2020-2022, as released with [1].",
+    "F. Yao, A. Demers, S. Shenker. A Scheduling Model for Reduced CPU Energy. FOCS, 1995.",
+    "A. C. Harberger. The Measurement of Waste. American Economic Review 54(3), 1964.",
+    "W. A. Hanafy, R. Bostandoost, N. Bashir, D. Irwin, M. Hajiesmaili, P. Shenoy. The War of the Efficiencies: Understanding the Tension between Carbon and Energy Optimization. HotCarbon, 2023.",
 ]
 
 
@@ -44,7 +47,15 @@ def load() -> dict:
     rd = lambda f: pd.read_csv(RES / f, index_col=0)["value"]  # noqa: E731
     return {"wf": rd("waterfill_summary.csv"), "vb": rd("virtual_battery_summary.csv"), "ex": rd("exchange_summary.csv"), "exy": rd("exchange_years_summary.csv"),
             "ds": rd("diurnal_summary.csv"), "ws": pd.read_csv(RES / "waterfill_saving_per_zone.csv"),
-            "hz": pd.read_csv(RES / "virtual_battery_horizon_law.csv"), "xz": pd.read_csv(RES / "exchange_per_zone.csv")}
+            "hz": pd.read_csv(RES / "virtual_battery_horizon_law.csv"), "xz": pd.read_csv(RES / "exchange_per_zone.csv"),
+            "sk": pd.read_csv(RES / "smoothknob_summary.csv")}
+
+
+def knob(n, kind: str, alpha: float, cap: str, col: str = "median_saving_pct") -> float:
+    """Look up one row of results/smoothknob_summary.csv (F29)."""
+    sk = n["sk"]
+    row = sk[sk.knob.str.startswith(kind) & (sk.alpha == alpha) & (sk.power_cap == cap)]
+    return float(row[col].iloc[0])
 
 
 def figures(n) -> list[Path]:
@@ -202,13 +213,26 @@ def build() -> None:
           f"{n['exy']['X_median_2022_cap1.2']:.1f} kWh/kW at +20%), and last year's value predicts this year's within 25% for "
           f"{n['exy']['X_prev_year_within_25pct_2022_cap1.2'] * 100:.0f}% of zones."),
 
-        h("7 Related Work"),
+        h("7 Not Every Knob Is a Battery"),
+        p("Deferral works because an energy-proportional server's power is <i>linear</i> in its utilisation: the virtual battery is lossless, the optimum is "
+          "bang-bang and the saving is first order in the daily swing. Carbon-aware speed scaling (DVFS, GPU power limits) turns a <i>convex</i> knob, "
+          "P = s^α. Its optimum runs each hour at speed ∝ c^(−1/(α−1)) [12] and the uncapped saving has a closed form, "
+          "1 − M_p(c)/mean(c), the gap between the arithmetic mean and the power mean with p = −1/(α−1) (α → 1 gives min(c): deferral). "
+          "To second order it is χ·CV²/2 with χ = P′²/(P·P″): like a Harberger triangle [13], a gain quadratic in the distortion. On 123 zones × 3 years, "
+          f"speed scaling with α = 3 saves a median {knob(n, 'speed scaling (same power cap)', 3.0, 'uncapped'):.2f}% even with unlimited power, against "
+          f"{knob(n, 'deferral', 1.0, 'uncapped'):.1f}% for deferring the same work; at a +20% power cap, {knob(n, 'speed scaling (same power cap)', 3.0, '+20%'):.2f}% "
+          f"vs {knob(n, 'deferral', 1.0, '+20%'):.1f}%. Across zones, savings grow as CV to the power {knob(n, 'speed scaling (same power cap)', 3.0, 'uncapped', 'loglog_slope_vs_cv'):.2f} "
+          f"for speed scaling and {knob(n, 'deferral', 1.0, '+20%', 'loglog_slope_vs_cv'):.2f} for deferral, and the power-mean law is exact "
+          "against the optimiser. Carbon-aware speed scaling is mostly an energy-efficiency measure with a small carbon garnish [14]; "
+          "the carbon knob is <i>when</i>, not <i>how fast</i>."),
+
+        h("8 Related Work"),
         p("Upper bounds on temporal and spatial shifting [1, 5] and Google's capacity-curve scheduling [2] are empirical or optimisation-based. Ecovisor [3] "
           "and CarbonScaler [4] expose energy and elasticity to applications. The virtual-battery view of flexible demand is established in power systems "
           "[8, 9], and water-filling is classical [7]; we are not aware of a closed-form treatment of capped carbon-aware compute. Storage can raise "
           "emissions when it arbitrages prices [10]; our spread law gives the carbon analogue per grid."),
 
-        h("8 Discussion and Limitations"),
+        h("9 Discussion and Limitations"),
         p("<b>Implications.</b> An operator can estimate the saving, the value of new capacity and the right planning horizon from a sort of each day's carbon "
           "intensities. Because capacity value grows with the grid's daily swing, it will rise as solar grows. Electrical headroom for deferrable work does not "
           "need UPS or generator backup, and buys the equivalent of several kWh of batteries at a small fraction of their embodied carbon."),

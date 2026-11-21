@@ -293,6 +293,10 @@ REFS = [
     "V. Sakalkar, V. Kontorinis, D. Landhuis, S. Li, D. De Ronde, T. Blooming, A. Ramesh, J. Kennedy, C. Malone, et al. Data Center Power Oversubscription with a Medium Voltage Power Plane and Priority-Aware Capping. In Proc. ASPLOS, 2020. Traces: Google PowerData2019, https://github.com/google/cluster-data (CC-BY 4.0).",
     "J. Gorka, N. Rhodes, L. Roald. ElectricityEmissions.jl: A Framework for the Comparison of Carbon Intensity Signals. arXiv:2411.06560, 2024.",
     "R. H. Coase. The Marginal Cost Controversy. Economica 13(51), 1946.",
+    "F. Yao, A. Demers, S. Shenker. A Scheduling Model for Reduced CPU Energy. In Proc. FOCS, 1995.",
+    "A. C. Harberger. The Measurement of Waste. American Economic Review 54(3), 1964.",
+    "W. A. Hanafy, R. Bostandoost, N. Bashir, D. Irwin, M. Hajiesmaili, P. Shenoy. The War of the Efficiencies: Understanding the Tension between Carbon and Energy Optimization. In Proc. HotCarbon, 2023. arXiv:2306.16948.",
+    "A. Antoniadis, P. Kling, S. Ott, S. Riechers. Continuous Speed Scaling with Variability: A Simple and Direct Approach. Theoretical Computer Science 678, 2017.",
 ]
 
 
@@ -785,6 +789,34 @@ def build(n: dict) -> None:
         f"m < c) while at 1 GW {(ih.transfer_g / ih.location_claimed_g).min() * 100:.0f}-{(ih.transfer_g / ih.location_claimed_g).max() * 100:.0f}% of "
         "its claim is moved onto others.")
     P.figure(FIG / "incidence.png", "Average-optimal schedule per US BA: what location-based accounting reports, split into the real cut in grid emissions and the emissions moved onto other consumers.")
+
+    sk = pd.read_csv(RES / "smoothknob_summary.csv")
+    f14 = pd.read_csv(RES / "smoothknob_f14_slopes.csv")
+
+    def kn(kind, alpha, cap, col="median_saving_pct"):
+        r = sk[sk.knob.str.startswith(kind) & (sk.alpha == alpha) & (sk.power_cap == cap)]
+        return float(r[col].iloc[0])
+
+    P.h("5.13 Not every knob is a battery: carbon-aware speed scaling is second order", 2)
+    P.p(
+        "Deferral on an energy-proportional server changes utilisation, and power is linear in utilisation: the optimum is bang-bang (water-filling, Sec. 5.7) "
+        "and the saving is first order in the daily swing. Carbon-aware speed scaling (DVFS, GPU power limits) turns a convex knob, P = s^alpha. With the "
+        "day's work fixed, the optimal speed is s_t proportional to c_t^(-1/(alpha-1)) [35, 38], and the uncapped saving has a closed form, "
+        "1 - M_p(c)/M_1(c), the gap between the arithmetic mean and the power mean of the day's carbon with p = -1/(alpha-1); alpha -> 1 recovers min(c), "
+        "i.e. deferral. To second order the saving is (chi/2) CV^2 with chi = P'^2/(P P''), alpha/(alpha-1) for a power law: like a Harberger triangle "
+        "[36], the gain is quadratic in the distortion because the cost of leaving the efficient constant speed is itself quadratic.")
+    P.p(
+        f"On 123 zones x 2020-2022 (24 h windows), speed scaling with alpha = 3 saves a median {kn('speed scaling (same power cap)', 3.0, 'uncapped'):.2f}% "
+        f"with unlimited power and {kn('speed scaling (same power cap)', 3.0, '+20%'):.2f}% under a +20% power cap, against "
+        f"{kn('deferral', 1.0, 'uncapped'):.1f}% and {kn('deferral', 1.0, '+20%'):.1f}% for deferring the same work (median ratio "
+        f"{kn('speed scaling (same power cap)', 3.0, '+20%', 'median_ratio_defer_over_knob'):.1f}x at +20%). Even alpha = 1.5 gives "
+        f"{kn('speed scaling (same power cap)', 1.5, 'uncapped'):.2f}%. Across zones the saving grows as CV^{kn('speed scaling (same power cap)', 3.0, 'uncapped', 'loglog_slope_vs_cv'):.2f} "
+        f"for speed scaling and CV^{kn('deferral', 1.0, '+20%', 'loglog_slope_vs_cv'):.2f} for deferral. The power-mean law matches the optimiser exactly; "
+        f"the quadratic law has R^2 {kn('speed scaling (same power cap)', 3.0, 'uncapped', 'r2_harberger_vs_exact'):.2f}. Headroom is almost worthless to a "
+        "smooth knob: the optimum rarely reaches the cap. Discrete knobs behave like deferral, not like DVFS: the batching model of Sec. 4 (a convex hull of "
+        f"measured batch sizes, piecewise linear) scales with slopes {f14.slope_vs_cv_year.min():.1f}-{f14.slope_vs_cv_year.max():.1f}. What decides is the "
+        "curvature of the energy-per-work curve at the operating point, not the device. The large savings reported for carbon-aware power capping are mostly "
+        "time-invariant energy efficiency [37]; the carbon knob is when, not how fast.")
 
     P.h("6 The Redundancy Dividend")
     P.p(
