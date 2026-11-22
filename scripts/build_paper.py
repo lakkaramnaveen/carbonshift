@@ -291,6 +291,8 @@ REFS = [
     "K. Siler-Evans, I. L. Azevedo, M. G. Morgan. Marginal Emissions Factors for the U.S. Electricity System. Environmental Science & Technology 46(9), 2012.",
     "U.S. Energy Information Administration. Hourly Electric Grid Monitor (Form EIA-930), six-month balance files, 2022. https://www.eia.gov/electricity/gridmonitor/.",
     "V. Sakalkar, V. Kontorinis, D. Landhuis, S. Li, D. De Ronde, T. Blooming, A. Ramesh, J. Kennedy, C. Malone, et al. Data Center Power Oversubscription with a Medium Voltage Power Plane and Priority-Aware Capping. In Proc. ASPLOS, 2020. Traces: Google PowerData2019, https://github.com/google/cluster-data (CC-BY 4.0).",
+    "J. Gorka, N. Rhodes, L. Roald. ElectricityEmissions.jl: A Framework for the Comparison of Carbon Intensity Signals. arXiv:2411.06560, 2024.",
+    "R. H. Coase. The Marginal Cost Controversy. Economica 13(51), 1946.",
 ]
 
 
@@ -758,6 +760,31 @@ def build(n: dict) -> None:
         f"{th['hyperscale_tes_over_it_pooled'] * 100:.0f}-{th['legacy_tes_over_it_pooled'] * 100:.0f}% of the IT-shifting saving. The three batteries rank: flexible IT load "
         "(lossless, free), then cooling storage dispatched on c × COP, then electric batteries.")
     P.figure(FIG / "thermal.png", "Left: facility emissions cut by a chilled-water tank versus its size (median and interquartile range over 47 zones). Right: share of the tank's saving kept when it is dispatched on grid carbon only or on weather only.")
+
+    inc = pd.read_csv(RES / "incidence_summary.csv", index_col=0)["value"]
+    ia = pd.read_csv(RES / "incidence_per_ba.csv")
+    ic = pd.read_csv(RES / "incidence_caiso.csv")
+    ih = ic[ic.schedule.str.startswith("average") & (ic.fleet_mw == 1000)]
+    P.h("5.12 Who bears the cost? Location-based savings are mostly transfers", 2)
+    P.p(
+        "Location-based accounting charges each consumer the hour's average intensity c_t = E_t/D_t, and the charges sum to grid emissions. So for any "
+        "change of schedule, the change in the shifter's attribution plus the change in everyone else's equals the change in real emissions, exactly. If the "
+        "grid answers a small change at the marginal rate m_t, the part moved onto other consumers is sum_t (m_t - c_t) dL_t = reported - real saving: the "
+        "average rate is a marginal charge plus an hourly residual r_t = c_t - m_t, and a scheduler that chases low c_t harvests that residual "
+        "[33].")
+    P.p(
+        f"On {inc['bas']:.0f} US BAs (setting of Sec. 5.6), the average-optimal schedule reports a median {inc['avgopt_claimed_g_median']:.1f} g/kWh but cuts "
+        f"{inc['avgopt_real_g_median']:.1f}: **{inc['transfer_share_pooled'] * 100:.0f}% of the reported saving (median BA {inc['transfer_share_median'] * 100:.0f}%) is "
+        f"moved onto other consumers**, and in {inc['bas_transfer_over_100pct']:.0f} BAs grid emissions rise. The marginal-optimal plan cuts "
+        f"{inc['real_gain_margopt_over_avgopt_pooled']:.0f}x more on held-out factors, yet location-based books recognise "
+        f"{ia.margopt_location_reported_g.sum() / ia.margopt_real_oos_g.sum() * 100:.1f}% of it and record an increase in "
+        f"{inc['bas_real_saving_reported_as_increase']:.0f} BAs where emissions fall. A two-part rule borrowed from tariff design [34], marginal charge plus "
+        "the residual allocated by annual energy, is equally budget balanced but reports exactly the real effect of an energy-preserving shift. On an "
+        "independent structural margin (CAISO 2021-2024, curtailment first, gas at 490 g/kWh, exact finite-size attribution), two-part claims are within "
+        f"{inc['caiso_two_part_minus_real_g_maxabs']:.1f} g/kWh of the real effect; the incidence is signed: a 100 MW herd under-claims (curtailment hours have "
+        f"m < c) while at 1 GW {(ih.transfer_g / ih.location_claimed_g).min() * 100:.0f}-{(ih.transfer_g / ih.location_claimed_g).max() * 100:.0f}% of "
+        "its claim is moved onto others.")
+    P.figure(FIG / "incidence.png", "Average-optimal schedule per US BA: what location-based accounting reports, split into the real cut in grid emissions and the emissions moved onto other consumers.")
 
     P.h("6 The Redundancy Dividend")
     P.p(
