@@ -464,6 +464,34 @@ Headroom is almost worthless to a smooth knob (0.79% uncapped vs 0.70% at +20%):
 
 *Why it matters.* Carbon-aware frequency scaling and GPU power capping are often presented as carbon-aware computing. The law says that on today's grids their carbon-aware part is worth a median under 1% and scales with the square of the grid's variability; most of what they save is time-invariant energy efficiency (running nearer the energy-optimal point; cf. Hanafy et al., HotCarbon 2023), which needs no carbon signal. The carbon knob is *when*, not *how fast*: set a smooth knob for energy, and let the carbon signal drive deferral or on/off decisions. *Limitations:* dynamic power only (static power p0 scales the saving by 1/(1+p0), tested); fixed work per day; no minimum speed; average signal; α is assumed, not measured here. Outputs: `results/smoothknob_*.csv`, `figures/smoothknob.png`, `src/carbonshift/smoothknob.py`, `tests/test_smoothknob.py`.
 
+## 5i. Hourly matching (24/7 CFE) rewards shifting the grid does not see
+
+Section 5g showed that location-based savings are mostly transfers. The proposed stricter standard is hourly matching: the GHG Protocol's Scope 2 revision keeps an hourly-matched market-based method under consideration (status update, October 2026), and Google's 24/7 CFE score is the industry example. A consumer with a contracted clean portfolio P_t is charged only for unmatched load,
+
+    A_hm = Σ_t c_t · max(L_t − P_t, 0),
+
+and surplus earns nothing. Moving a kWh from a deficit hour into a surplus hour of one's *own* portfolio is booked as a full residual-mix kWh saved. But the portfolio is already built and its output does not depend on the schedule: a kWh of surplus absorbed is a kWh not exported, which the rest of the grid replaces at the marginal rate. So the real change is Σ_t m_t ΔL_t, exactly as for a consumer with no portfolio, and hourly market-based accounting, being budget balanced, moves the difference onto other consumers' residual mix. Riepin, Brown & Zavala (2025) conclude that a 24/7 buyer's shifting no longer needs grid signals; for real emissions, only the grid signal matters.
+
+**Finding 25 (F30): hourly matching does not fix the incidence problem; it makes the reward for moving emissions about five times larger.** 48 BAs (EIA-930 2022), φ = 0.5, cap 1/0.70, 24 h slack, solar portfolio (clear-sky shape at each BA) sized to 100% of annual load, exact LP that minimises A_hm:
+
+| Hourly-matching-optimal schedule | Value |
+|---|---|
+| CFE score, flat → shifted (median) | 43% → +15 pp |
+| Reported saving, median BA | **68 g/kWh** (location-based claim in 5g: 12 g) |
+| Real cut in grid emissions, median BA | **0.8 g/kWh** |
+| Share moved onto other consumers, pooled / median BA | **94% / 99%** |
+| BAs where grid emissions rise | 21 of 48 |
+| Split-half MEFs; portfolio 50% / 150%; LP tie-break on the marginal signal | 94%; 93% / 93%; 94% |
+| Marginal-optimal plan: real cut vs the CFE plan, pooled; its CFE change | 6.4×; −0.2 pp |
+
+![Hourly matching](../figures/hourly_matching.png)
+
+**Second derivation.** If the margin at night and the margin at noon are the same fossil fleet, a moved kWh changes real emissions by m̄_deficit − m̄_surplus while the score credits c̄_deficit. This signals-only closed form tracks the LP's real share across BAs at Pearson 0.94 (Spearman 0.82), pooled 3% against the LP's 6%. A toy-grid test computes everyone's exact hourly residual-mix inventories and checks that others absorb reported − real (to 2%).
+
+**The exception is again California.** With the real 2022 CAISO solar profile (r = 0.95 with the clear-sky shape), 30 of the 55 g/kWh reported are real, because CAISO's surplus hours are curtailed; with a 50/50 solar-wind portfolio, 25 of 43.
+
+*Why it matters.* Hourly matching is a procurement standard: building a portfolio shaped to one's load can cut emissions (Xu et al., Joule 2024). As an *operating* signal for shifting against a portfolio that is already built, it is the wrong signal: it pays operators to absorb clean energy the neighbours would otherwise have used. The fix is F28's two-part rule with the portfolio credited at the margin, a_i = Σ_t m_t (L_it − P_it) + ρ Σ_t L_it, under which the reported change of a shift equals its real effect. *Limits:* clear-sky portfolios (no clouds), the grid average as the residual mix (a true residual mix is dirtier, which would raise the reported saving), first order in the consumer's size, regression MEFs.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.

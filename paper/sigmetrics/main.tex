@@ -1,0 +1,174 @@
+% Full-paper skeleton for ACM SIGMETRICS 2027 (winter cycle; POMACS format).
+% Build:  latexmk -pdf main.tex   (needs TeX Live with acmart >= 2.x; not available on the
+% build machine used for the research runs, so this file has not yet been compiled).
+% Every number below is copied from results/*.csv; `scripts/build_workshop_battery.py`
+% is the content source. Keep the two in sync until the numbers are macro-generated.
+\documentclass[acmsmall,review,anonymous]{acmart}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+
+\newcommand{\Mp}{\mathcal{M}}
+\newcommand{\sinc}{\operatorname{sinc}}
+
+\setcopyright{none}
+\acmJournal{POMACS}
+
+\title{Your Data Centre Is Already a Battery: A Closed-Form Theory of Carbon-Aware Shifting under Power Caps}
+\author{Anonymous Author(s)}
+\affiliation{\institution{Submission for double-blind review}\country{}}
+
+\begin{abstract}
+Upper bounds on carbon-aware workload shifting assume a data centre can draw any power in
+any hour. Achieving them needs the median facility to draw 13$\times$ its mean power in a single
+hour. We show that the capped problem has a closed-form structure. With 24\,h slack, flexible
+work water-fills each day's cleanest hours; the share of the ideal saving kept depends only on
+headroom per unit of flexible load ($h/\varphi$, an exact homogeneity theorem), and the saving is
+$\varphi A \sinc(\pi\varphi/(\varphi+h))$ for daily swing $A$ ($R^2=0.968$ over 4{,}680 LP solves).
+More generally, flexible load under a power cap \emph{is} a lossless battery of energy
+$s\varphi$, discharge power $\varphi$ and charge power $h$. This one picture explains why a UPS is
+negligible, why tight caps plan beyond the slack, and why power caps stop uncoordinated
+carbon-aware fleets from herding. It also marks the boundary of the theory: convex knobs
+(DVFS, GPU power limits) are \emph{not} batteries. Their saving is the gap between the
+arithmetic and a power mean of the carbon signal, second order in its variation:
+0.79\% against 14.6\% for deferral on 123 grid zones.
+\end{abstract}
+
+\keywords{carbon-aware computing, workload shifting, power capping, virtual storage, water-filling}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+% Source: build_workshop_battery.py §1; F3, F4, F12.
+% Contributions: (1) homogeneity theorem and water-filling closed form (Thm 1, Prop 2);
+% (2) virtual-battery equivalence (Thm 3) and its corollaries (UPS, horizon, signal blending);
+% (3) storage exchange rate (F23); (4) the power-cap as an anti-herding device (F24);
+% (5) the boundary: power-mean law for convex knobs (Thm 4, F29).
+\textbf{TODO.} Port from the workshop draft and extend to 2 pages.
+
+\section{Model}
+\label{sec:model}
+A facility has mean load $1$, hourly carbon intensity $c_t$ ($t=1,\dots,T$), a share
+$\varphi\in(0,1]$ of the load that arrives as flexible work at rate $\varphi$ per hour and must be
+served within $s$ hours, and a power cap $1+h$ ($h\ge0$ is the headroom). The inflexible load
+$1-\varphi$ runs on arrival. Let $y_t\ge0$ be flexible work served in hour $t$,
+$Y_t=\sum_{\tau\le t}y_\tau$ and $A_t=\varphi t$. Work is fluid and served earliest-deadline-first,
+so the schedule is feasible iff
+\begin{equation}
+A_{t-s}\le Y_t\le A_t,\qquad 0\le y_t\le \varphi+h\qquad\forall t, \label{eq:lp}
+\end{equation}
+and the problem is $\min\sum_t c_t\,(1-\varphi+y_t)$ subject to \eqref{eq:lp}.
+The saving $S(\varphi,h)$ is the drop against $y_t=\varphi$.
+
+\section{Water-Filling and Homogeneity}
+\begin{theorem}[Homogeneity]\label{thm:homog}
+$S(\lambda\varphi,\lambda h)=\lambda S(\varphi,h)$ for all $\lambda>0$. Hence the share of the
+ideal saving kept under a cap, $S(\varphi,h)/S(\varphi,\infty)$, is a function of $h/\varphi$ alone.
+\end{theorem}
+\begin{proposition}[Sinusoidal closed form]\label{prop:sinc}
+With $s=24$, one-day windows and $c_t=\bar c-A\cos(2\pi t/24)$, the optimum serves the
+flexible work at rate $\varphi+h$ during the cleanest fraction $q=\varphi/(\varphi+h)$ of the day and
+\[ S(\varphi,h)=\varphi A\,\sinc(\pi q),\qquad \sinc x=\sin x/x. \]
+The uncapped saving is $\varphi A$ and the peak draw is $1+24\varphi$.
+\end{proposition}
+% Empirics: uncapped R^2 0.998 (phi*A), capped R^2 0.968 (4,680 LP solves); water-level
+% shadow price R^2 0.981 (results/waterfill_*.csv).
+
+\section{Flexible Load under a Cap Is a Battery}
+\begin{theorem}[Virtual battery]\label{thm:battery}
+Let $B_t=A_t-Y_t$ (the backlog). Constraints \eqref{eq:lp} are equivalent to
+\[ 0\le B_t\le s\varphi,\qquad -h\le B_t-B_{t-1}\le\varphi, \]
+and the facility draws $1-(B_t-B_{t-1})$. Capped shifting is therefore exactly the dispatch of a
+lossless battery of energy $s\varphi$, discharge power $\varphi$ and charge power $h$ in front of a
+flat load of $1$, with boundary condition $B_0=0$, $B_T=0$ (instead of a cyclic one).
+\end{theorem}
+% Corollaries (F22): UPS = 1/72 of the virtual energy; effective horizon s*phi/h; lossless
+% battery blends signals harmlessly in all 48 BAs; exchange rate vs a 4 h Li-ion battery (F23).
+
+\section{Fleets: Saturation and Herding}
+% F24, CAISO 2021-2024.  TODO.
+
+\section{Not Every Knob Is a Battery}
+\begin{theorem}[Power-mean law]\label{thm:powermean}
+Let a day's work $W=n$ be run at speeds $s_t\ge0$, $\sum_t s_t=n$, with power $s_t^{\alpha}$
+($\alpha>1$) and carbon $\sum_t c_t s_t^\alpha$, $c_t>0$. The optimum is
+$s_t\propto c_t^{-1/(\alpha-1)}$ and the saving against constant speed is
+\[ 1-\frac{\Mp_p(c)}{\Mp_1(c)},\qquad p=-\frac{1}{\alpha-1}, \]
+where $\Mp_p(c)=(\frac1n\sum_t c_t^p)^{1/p}$. To second order in the coefficient of variation,
+the saving is $\frac{\chi}{2}\mathrm{CV}^2$ with $\chi=\alpha/(\alpha-1)$; as $\alpha\to1$ it tends
+to $1-\min_t c_t/\Mp_1(c)$, the deferral optimum.
+\end{theorem}
+% Empirics (F29): 123 zones x 2020-22, alpha=3: median 0.79% uncapped vs 14.6% for deferral;
+% savings scale as CV^1.99 vs CV^1.06.
+
+\section{Related Work}
+% Sukprasert et al. EuroSys'24; Radovanovic et al. (CICS); Wiesner et al. Middleware'21;
+% virtual storage of flexible loads (Callaway & Hiskens 2011; Hao et al. 2015); valley filling
+% (Gan, Topcu & Low 2013); speed scaling (Yao, Demers & Shenker FOCS'95; Antoniadis et al.
+% TCS 2017); carbon-aware DVFS (Hanafy et al. HotCarbon'23). TODO: read full texts.
+
+\section{Threats to Validity}
+% Average vs marginal signals; fluid work; perfect forecasts (F11 bounds the error);
+% assumed alpha for speed scaling; constant gas margin in F24.
+
+\appendix
+\section{Proofs}
+
+\begin{proof}[Proof of Theorem~\ref{thm:homog}]
+Write the feasible set of \eqref{eq:lp} as $F(\varphi,h)$. Every constraint is linear and its
+right-hand side is linear in $(\varphi,h)$: $A_{t-s}=\varphi(t-s)^+$, $A_t=\varphi t$ and
+$\varphi+h$. Hence $y\in F(\varphi,h)\iff\lambda y\in F(\lambda\varphi,\lambda h)$. The baseline
+$y_t=\varphi$ scales the same way, and the objective is linear, so
+$\sum_t c_t(\lambda\varphi-\lambda y_t)=\lambda\sum_t c_t(\varphi-y_t)$; taking the maximum over
+the feasible set gives $S(\lambda\varphi,\lambda h)=\lambda S(\varphi,h)$. With
+$\lambda=1/\varphi$, $S(\varphi,h)/S(\varphi,\infty)=S(1,h/\varphi)/S(1,\infty)$.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:sinc}]
+With one-day windows the problem separates by day. Within a day the work $24\varphi$ must be
+placed under the rate bound $\varphi+h$; by the exchange argument (moving work from a dirtier
+to a cleaner hour with spare rate never raises cost) the optimum fills the cleanest hours at the
+full rate, i.e.\ the sublevel set $\{c_t\le w\}$ of measure $24q$, $q=\varphi/(\varphi+h)$ (the
+water level $w$). In the continuum limit for $c(\theta)=\bar c-A\cos\theta$ the sublevel set is
+$|\theta|\le\pi q$ and the mean of $c$ on it is
+$\bar c-\frac{A}{2\pi q}\int_{-\pi q}^{\pi q}\cos\theta\,d\theta=\bar c-A\sinc(\pi q)$. The served
+work $24\varphi$ thus pays $\bar c-A\sinc(\pi q)$ instead of $\bar c$, so
+$S=\varphi A\sinc(\pi q)$ per hour of mean load. As $h\to\infty$, $q\to0$ and $S\to\varphi A$; the
+uncapped optimum serves the 24 arrivals of a window plus the one arriving at its start,
+i.e.\ $25\varphi$ in the cleanest hour, so the peak draw is $1-\varphi+25\varphi=1+24\varphi$.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:battery}]
+$Y_t\le A_t\iff B_t\ge0$. With constant arrivals, $Y_t\ge A_{t-s}\iff B_t\le A_t-A_{t-s}=s\varphi$
+(for $t\ge s$; for $t<s$ the bound $Y_t\ge0$ is implied by $y\ge0$ and is looser than
+$B_t\le s\varphi$ only through the start-up boundary). Since $y_t=\varphi-(B_t-B_{t-1})$,
+$0\le y_t\le\varphi+h\iff-h\le B_t-B_{t-1}\le\varphi$. The draw is
+$1-\varphi+y_t=1-(B_t-B_{t-1})$. A lossless battery with state of charge $B_t$, discharge
+$\delta_t=(B_t-B_{t-1})^+\le\varphi$ and charge $(B_{t-1}-B_t)^+\le h$ in front of a unit load
+draws exactly this. The only difference from a cyclic battery is the boundary
+$B_0=0$ (nothing is owed at the start) and $B_T=0$ (all work done by the end), which changes
+the optimum by at most one cycle of the battery, $O(s\varphi\max_t c_t/T)$ per hour.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:powermean}]
+The objective is strictly convex and the constraint linear, so the KKT conditions are
+sufficient: $\alpha c_t s_t^{\alpha-1}=\mu$, i.e.\ $s_t=k\,c_t^{-q}$ with $q=1/(\alpha-1)$ and
+$k=n/\sum_t c_t^{-q}$ (all $s_t>0$, so the bound $s_t\ge0$ is slack). The cost is
+$k^\alpha\sum_t c_t^{1-q\alpha}$ and $1-q\alpha=-q$, so it equals
+$n^\alpha(\sum_t c_t^{-q})^{1-\alpha}$. With $p=-q$, $\sum_tc_t^{p}=n\Mp_p^p$ and
+$p(1-\alpha)=1$, so the cost is $n\,\Mp_p(c)$. Constant speed costs $n\,\Mp_1(c)$, which gives
+the saving. Writing $c_t=\bar c(1+\epsilon_t)$ with $\sum\epsilon_t=0$,
+$\Mp_p=\bar c\,(1+\frac{p-1}{2}\overline{\epsilon^2}+O(\epsilon^3))$, so the saving is
+$\frac{1-p}{2}\mathrm{CV}^2=\frac{\alpha}{2(\alpha-1)}\mathrm{CV}^2$ to second order. As
+$\alpha\to1^+$, $p\to-\infty$ and $\Mp_p\to\min_t c_t$.
+\end{proof}
+
+\bibliographystyle{ACM-Reference-Format}
+% \bibliography{refs}   % TODO: refs.bib from the REFS lists in scripts/build_workshop_*.py
+\end{document}

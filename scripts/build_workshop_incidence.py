@@ -37,6 +37,9 @@ REFS = [
     "California ISO. Production and Curtailments Data, 2021-2024.",
     "A. Radovanovic, R. Koningstein, et al. Carbon-Aware Computing for Datacenters. arXiv:2106.11750, 2021.",
     "P. Wiesner, I. Behnke, D. Scheinert, K. Gontarska, L. Thamsen. Let's Wait Awhile: How Temporal Workload Shifting Can Reduce Carbon Emissions in the Cloud. Middleware, 2021.",
+    "I. Riepin, T. Brown, V. M. Zavala. Spatio-temporal Load Shifting for Truly Clean Computing. Advances in Applied Energy 17, 100202, 2025 (arXiv:2405.00036).",
+    "Q. Xu, W. Ricks, A. Manocha, N. Patankar, J. D. Jenkins. System-level Impacts of Voluntary Carbon-free Electricity Procurement Strategies. Joule 8(2), 2024.",
+    "GHG Protocol. Scope 2 Market-Based Method Update: status of the 2025-26 consultation on hourly matching and deliverability, October 2026.",
 ]
 
 
@@ -45,7 +48,8 @@ def load() -> dict:
             "a": pd.read_csv(RES / "incidence_per_ba.csv"),
             "c": pd.read_csv(RES / "incidence_caiso.csv"),
             "hs": pd.read_csv(RES / "hedge_summary.csv", index_col=0)["value"],
-            "hf": pd.read_csv(RES / "hedge_frontier_per_ba.csv")}
+            "hf": pd.read_csv(RES / "hedge_frontier_per_ba.csv"),
+            "hm": pd.read_csv(RES / "hourly_matching_summary.csv", index_col=0)["value"]}
 
 
 def figures(n) -> list[Path]:
@@ -86,7 +90,7 @@ def figures(n) -> list[Path]:
 
 def build() -> None:
     n = load()
-    s, a, c, hs, hf = n["s"], n["a"], n["c"], n["hs"], n["hf"]
+    s, a, c, hs, hf, hm = n["s"], n["a"], n["c"], n["hs"], n["hf"], n["hm"]
     f1, f2 = figures(n)
     S = styles()
     p, h, b, fig, table = S["p"], S["h"], S["b"], S["fig"], S["table"]
@@ -117,7 +121,9 @@ def build() -> None:
             f"emits more. The schedule that does cut emissions, by {s['real_gain_margopt_over_avgopt_pooled']:.0f}× more on held-out marginal factors, is "
             f"recognised at {pc(recog, 1)} "
             f"and booked as an increase in {s['bas_margopt_reported_as_increase']:.0f}. Borrowing the two-part tariff from utility "
-            "economics, we propose an accounting rule that keeps budget balance but reports exactly the real effect.", S["body"]),
+            "economics, we propose an accounting rule that keeps budget balance but reports exactly the real effect. Hourly matching (24/7 CFE), the "
+            "proposed stricter standard, does not fix this: shifting into one's own solar hours reports a median "
+            f"{hm['hm_avg_tb_reported_g_median']:.0f} g/kWh saved, of which {pc(hm['hm_avg_tb_transfer_share_pooled'])} is moved onto other consumers.", S["body"]),
 
         h("1 Introduction"),
         p("Carbon-aware schedulers move flexible work to hours when the grid is cleaner [1, 10, 11]. Whether they help is usually asked as a question about "
@@ -129,6 +135,7 @@ def build() -> None:
         b("An exact incidence identity, and its first-order form: the average rate is a marginal charge plus an <i>hourly residual</i>, and the residual is what moves (§2)."),
         b(f"Measurement on {nb} U.S. grids: most of a location-based saving is a transfer, and the real reduction is booked as an increase in about half of them (§3)."),
         b("A two-part accounting rule, budget balanced and incentive aligned, checked on a structural model of California with curtailment (§4, §5)."),
+        b("The same incidence under hourly-matched (24/7 CFE) accounting: absorbing one's own clean surplus is a claim on energy the neighbours would have used (§6)."),
 
         h("2 The Incidence Identity"),
         p("Let the grid emit E<sub>t</sub> to serve demand D<sub>t</sub>, so the average intensity is c<sub>t</sub> = E<sub>t</sub>/D<sub>t</sub>, and a "
@@ -182,16 +189,37 @@ def build() -> None:
           f"the curtailment is used up and {rng(sh1g * 100)}% of the reported saving is moved onto others. California is the favourable exception that the U.S. "
           "regression data also show (CISO: −5%); the typical grid has gas or coal at the margin in its clean hours."),
 
-        h("6 Related Work"),
+        h("6 Hourly Matching Does Not Fix It"),
+        p("The GHG Protocol's Scope 2 revision proposes hourly-matched market-based accounting [14]: a consumer with a clean portfolio P<sub>t</sub> is charged "
+          "only for unmatched load, Σ c<sub>t</sub> max(L<sub>t</sub> − P<sub>t</sub>, 0), and surplus earns nothing. A kWh moved from a deficit hour into a "
+          "surplus hour of one's <i>own</i> portfolio is booked as a full residual-mix kWh saved. But the portfolio is already built; the surplus it no longer "
+          "exports is replaced by the rest of the grid at m<sub>t</sub>, so the real change is Σ m<sub>t</sub>dL<sub>t</sub> exactly as without a portfolio, and "
+          "hourly market-based accounting, being budget balanced, moves the difference onto others' residual mix. We repeat §3 with a solar portfolio "
+          "(clear-sky shape at each BA, sized to 100% of annual load) and an exact LP that maximises the hourly match."),
+        p(f"Shifting lifts the CFE score by a median {hm['hm_avg_tb_cfe_gain_pp_median']:.0f} points (from {pc(hm['cfe_flat_median'])}) and reports a median "
+          f"{hm['hm_avg_tb_reported_g_median']:.0f} g/kWh saved, five times the location-based claim of §3, while the grid's emissions fall by "
+          f"{hm['hm_avg_tb_real_g_median']:.1f} g. Pooled, {pc(hm['hm_avg_tb_transfer_share_pooled'])} is moved (split-half factors: "
+          f"{pc(1 - hm['hm_avg_tb_real_share_pooled_split'])}); the grid emits more in {hm['hm_avg_tb_bas_real_negative']:.0f} of {nb} BAs. Portfolios of 50% "
+          f"and 150% give {pc(hm['kappa0.5_hm_transfer_share_pooled'])} and {pc(hm['kappa1.5_hm_transfer_share_pooled'])}; breaking LP ties on the marginal "
+          f"signal changes nothing ({pc(hm['hm_marg_tb_transfer_share_pooled'])}). The marginal-optimal plan cuts {hm['real_gain_margopt_over_hm_pooled']:.1f}× "
+          "more and barely moves the CFE score. A closed form, real share ≈ (mean m in deficit hours − mean m in surplus hours) / mean c in deficit hours, tracks the LP "
+          "(Pearson 0.94 across BAs): the margin at night and at noon is usually the same fossil fleet. California is again the exception "
+          f"(real CAISO solar: {hm['caiso_real_solar_real_g']:.0f} of {hm['caiso_real_solar_reported_g']:.0f} g/kWh real), because its surplus hours are curtailed. "
+          "This is not an argument against 24/7 procurement, whose <i>building</i> of clean capacity can be real [12, 13]; it is that operating against a built "
+          "portfolio is scored on the wrong signal. The two-part rule extends directly: credit the portfolio at m<sub>t</sub>, a<sub>i</sub> = Σ m<sub>t</sub>"
+          "(L<sub>it</sub> − P<sub>it</sub>) + ρ Σ L<sub>it</sub>."),
+
+        h("7 Related Work"),
         p("Gorka, Rhodes and Roald [3] show on test networks that shifting on average intensity can lower a consumer's allocation while raising system "
           "emissions, and examine non-shifting consumers. Sukprasert et al. [2] compare signals across 65 regions. WattTime's impact accounting [7] and the "
-          "GHG Protocol's consultation [6] propose marginal charges. We add the exact identity, measurement on real grids under a facility cap, and a "
+          "GHG Protocol's consultation [6] propose marginal charges. Riepin, Brown and Zavala [12] show that load shifting cuts the cost of 24/7 "
+          "procurement and argue that grid signals then matter little; Xu et al. [13] model its system-level impacts through new build. We add the exact identity, measurement on real grids under a facility cap, and a "
           "budget-balanced rule that aligns incentives."),
 
-        h("7 Threats to Validity"),
+        h("8 Threats to Validity"),
         p("Marginal factors are season × hour regressions on one year and exclude imports; held-out scoring guards against noise, not model error. The "
           "identity is first order in the consumer's size (exact at finite size in §5). Flexible work is fluid and forecasts are perfect. The two-part rule "
-          "needs an agreed marginal signal, and how to allocate the residual (by energy, by peak, by customer) is a policy choice we do not settle."),
+          "needs an agreed marginal signal, §6 uses clear-sky solar portfolios (r = 0.95 with real CAISO solar) and the grid average as residual mix, and how to allocate the residual (by energy, by peak, by customer) is a policy choice we do not settle."),
 
         h("References"),
     ] + [Paragraph(f"[{i}] {r}", S["ref"]) for i, r in enumerate(REFS, 1)]
