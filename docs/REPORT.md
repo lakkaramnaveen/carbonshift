@@ -285,6 +285,116 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 2. compares it with EPD-based embodied carbon of electrical plant and servers;
 3. uses tier redundancy as carbon-shifting headroom.
 
+## 5b. A closed-form law for all of the above
+
+The headroom curve (Finding 1), the 13x peak, the value of a kW and the swing law were all computed with an LP. They follow from one picture. With 24 h slack, a day's flexible work (24 φ units) runs at its maximum rate φ + h in the day's cleanest hours, like water filling the lowest parts of the price curve. That gives four closed forms (`src/carbonshift/waterfill.py`), each tested against the LP results (`scripts/waterfill_experiments.py`):
+
+| Law | Formula | Against the LP |
+|---|---|---|
+| Homogeneity theorem | share kept depends only on **h / φ** | exact: max difference 0.0000 over 1,200 zone-level pairs |
+| Uncapped saving | φ · A, where A = mean daily (mean − min) | R² 0.998 |
+| Capped saving | **φ · A · sinc(π φ / (φ + h))** | R² 0.968 over 4,680 LP solves; median error 0.9% |
+| Value of +1 kW | daily area between the "water level" and the cheaper filled hours | R² 0.981 over 360 zone-years; median ratio 1.002 |
+| Peak draw, uncapped | 1 + slack · φ | exact (7x, 13x, 19x for φ = 0.25, 0.5, 0.75) |
+
+**Finding 16: one formula explains the facility results.** *Headroom per unit of flexible load* is the only variable that matters for the share kept: +20% headroom with half the load flexible behaves exactly like +10% with a quarter flexible. The sinc curve gives the shape: half the ideal survives at h ≈ 0.8 φ. For a sinusoidal day the value of a kW is π A q² |sinc′(π q)| with q = φ / (φ + h). It is linear in the daily amplitude A and blind to the mean, which *derives* the swing law found empirically in Finding 10. In practice an operator can estimate both the saving and the value of new capacity from one sort of each day's prices, with no optimiser.
+
+![Water-filling law](../figures/waterfill_law.png)
+
+**Finding 17: flexible load under a power cap *is* a lossless battery.** Write the backlog of deferred work as B = arrivals − served. The cumulative-flow constraints then read 0 ≤ B ≤ s·φ (nothing waits longer than the slack) and −h ≤ ΔB ≤ φ (you cannot defer more than arrives, or catch up faster than the headroom allows). That is a battery of energy **s·φ**, discharge power **φ**, charge power **h** and **100% efficiency**: deferring work "discharges" it, catching up "recharges" it. The LPs agree to a median 0.14% on real grids; they differ only in their boundary condition. Three earlier puzzles follow:
+
+| Puzzle | Explanation from the virtual battery |
+|---|---|
+| Fixed-block water-filling underestimates at tight caps (−38% at +5% headroom) | The battery refills in s·φ/h hours, so tight caps plan over *longer* than the slack (10 days at +5%). Water-filling over that horizon cuts the bias to −4.6% (24 h slack) and −1.6% (168 h) |
+| A 10-minute UPS saves only 0.19% (Finding 4) | Half-flexible load with 24 h slack is a 12-hour lossless battery: 72× the UPS's energy, with no losses |
+| Blending signals works for load (Finding 14) but not for UPS batteries (Finding 15) | Losses, not storage, are the obstacle: a *lossless* 1 h battery dispatched on the 0.7 blend worsens neither ledger in any of 48 BAs, while at 90% round trip it worsens the average ledger in 60% |
+
+The last row was a prediction made from the theorem before running the test.
+
+**Finding 18: the storage exchange rate. A kW of headroom for flexible work replaces several kWh of real batteries, for 1/8 to 1/55 of their embodied carbon.** The virtual battery is lossless and free; a real one is not. To price the difference, I compared every zone's capped-shifting saving (the LP above) with a grid-scale Li-ion battery: 4 h duration, 90% round trip, cyclic, optimally dispatched on the same signal (one LP per zone, 123 zones, 2022). The battery's saving per kWh obeys its own closed form, a daily *spread law*: charge in each day's 4 cleanest hours, discharge in the 4 dirtiest, skip days whose spread does not cover the losses (R² 0.993 against the LP, median ratio 0.999).
+
+| Facility (φ = 0.5, 24 h slack) | +5% | +10% | +20% | +50% | no cap |
+|---|---|---|---|---|---|
+| Battery kWh with the same saving, per kW of mean load (median) | 1.9 | 3.0 | 4.3 | 6.8 | 11.0 |
+| Battery embodied carbon ÷ headroom embodied carbon (median) | 55× | 42× | 31× | 19× | — |
+| Same, most battery-favourable zone and factors | 22× | 19× | 16× | 8.4× | — |
+
+The exchange rate inherits the homogeneity theorem: X / (24φ) = κ_zone × retention(h/φ), so φ = 0.25 at +5% gives exactly the same per-virtual-kWh rate as φ = 0.5 at +10% (0.248). With no cap, one virtual kWh is worth κ = 0.91 real kWh (median; interquartile 0.78-1.44). In 7 of 123 zones the daily spread never covers 10% losses, so a battery saves nothing while flexible load still does. Chaining the two closed forms (water-filling over the effective horizon ÷ spread law) predicts the LP exchange rate with log-R² 0.91 and a median ratio of 0.94, with no optimiser at all.
+
+**Across years.** Re-running on 2020 and 2021 (120 zones, φ = 0.5, 24 h slack), the median exchange rate at +20% headroom is 4.9, 4.8 and 4.3 kWh/kW for 2020, 2021 and 2022 (12.6, 12.4 and 11.0 uncapped). Zone rankings are stable (Spearman 0.85-0.95 between years), and last year's rate predicts this year's within 25% for 78-84% of zones (median error 9%). The spread law holds every year (R² 0.993-0.994). The slow decline means batteries gained slightly on flexibility as daily spreads widened.
+
+Caveats: embodied factors are LFP 54-69 kg CO2eq/kWh (secondary source) against grid-only headroom (transformer + switchgear, 18-38 kg/kW); batteries also sell grid services this comparison ignores, and their shorter life (about 15 years vs 25) would widen the gap further.
+
+## 5c. Beyond one facility: when carbon-aware computing saturates
+
+Every result above, and the literature it builds on, treats the grid signal as fixed: one more kWh in a clean hour costs that hour's intensity, however many kWh arrive. That cannot hold as data-centre load grows.
+
+**First check: can a herd push up the marginal rate?** I fitted an emissions supply curve, E = a + b·F + c·F², to each U.S. balancing authority and season (EIA-930 2022, 44 BAs, 176 BA-seasons; F = fossil output). The marginal rate dE/dF changes by a median of only 6.6% between low-output and high-output hours (10th vs 90th percentile), and it rises in only 46% of cases. Fossil fleets have no consistent upward slope, so a herd cannot defeat itself by climbing the merit order.
+
+**What is finite is curtailment.** The one supply that is truly zero-carbon at the margin is renewable energy that would otherwise be thrown away. A new fleet of mean load P drawing L_t in hour t emits m·max(0, L_t − C_t), where C_t is the energy curtailed that hour and m = 490 g/kWh for the gas-fired margin. This cost is convex, so a coordinated fleet solves an LP. A *herd* of facilities, each optimising alone on an exogenous signal (average intensity, or 'free when curtailed'), is scored on the same cost. Data: CAISO 5-minute production and curtailment data for 2021-2024 (1.5, 2.4, 2.7 and 3.4 TWh curtailed). Half of the load is flexible, with 24 h slack.
+
+**Finding 19: carbon-aware shifting saturates at about a gigawatt in California, and without a power cap herding makes it backfire.**
+
+| CAISO 2022, new fleet of mean load | 0.1 GW | 0.5 GW | 1 GW | 2 GW | 4 GW | 8 GW |
+|---|---|---|---|---|---|---|
+| Saving per flexible kWh, coordinated, +20% cap (g) | 51 | 23 | 15 | 8 | 2 | 0 |
+| Avoided per year, coordinated, uncapped (kt CO2) | 96 | 229 | 316 | 273 | 57 | 0 |
+| Avoided per year, herd, uncapped (kt CO2) | 26 | −2 | −59 | −120 | −135 | −41 |
+| Avoided per year, herd = coordinated, +20% cap (kt CO2) | 22 | 50 | 66 | 70 | 32 | 0 |
+
+1. **Saturation.** Per flexible kWh, the saving falls by two-thirds between 0.1 and 1 GW and reaches zero near 8 GW. At that size the fleet absorbs nearly all curtailment just by running, so carbon-awareness adds nothing. Total avoided emissions are hump-shaped in fleet size and peak at 0.5-2 GW in every year (2021: 38 kt at +20% headroom; 2024: 106 kt). For scale, data centres used 4.4% of U.S. electricity in 2023 (LBNL); the same share of CAISO's 25.7 GW mean load is about 1.1 GW.
+2. **Uncapped herding backfires.** The uncapped schedule is the paper-style upper bound. Each facility puts its flexible work into the single cleanest hour, a 13× peak (F21). The herd overflows that hour's curtailment and abandons the curtailed hours it would have used by running on arrival. From 0.5 GW (2021-2023) or 1 GW (2024) upward it raises emissions, by up to 71 kt (2021), 135 kt (2022), 120 kt (2023) and 198 kt (2024) per year.
+3. **A power cap is an anti-herding device.** With +20% or +50% headroom, the uncoordinated herd achieves 97-100% of the coordinated optimum at every fleet size in all four years. The constraint that limits one facility's saving (Section 3) is what keeps a fleet of them safe. This is not a theorem: a made-up case in the tests shows a capped herd can still overflow small, scattered curtailment, though far less than an uncapped one.
+4. **The theory still holds.** Daily water-filling against curtailment, absorbed = min(Σ min(C_t, cap), Σ min(C_t, 1−φ) + 24φ) per day, matches the coordinated LP within 5% (ratio 0.95-1.003 in all 84 cases).
+
+*Sensitivity.* With EIA-930's CISO season × hour marginal factors in place of a constant margin, savings no longer saturate, and the coordinated saving even rises with fleet size. That is exactly the artefact of treating the signal as exogenous: an hour-of-day factor does not know how much clean energy is left. The uncapped herd still captures only 4-26% of the coordinated saving, against 45-72% with a cap.
+
+*Limitations.* The margin is a constant gas rate; imports, hydro and storage dispatch would also respond to new load. Curtailment is taken as observed, though a fleet that shows up would change future curtailment and solar build-out. The fleet is a single new load at CAISO scale, with no transmission limits inside CAISO.
+
+## 5d. The power meter as a side channel
+
+**Finding 20: carbon-aware scheduling is visible on the power meter within a week, and the meter reads out the virtual battery.** With hourly draw d scaled to mean 1, the carbon saved against a flat draw is exactly −cov(c, d) (verified to 10⁻¹¹ g/kWh). So no facility can save carbon without a matching negative covariance between its meter and the public carbon signal. Anyone who sees the meter (the utility, a co-located tenant, an inspector with a clamp meter) and the public signal can test for it.
+
+Setup: 960 simulated facilities on 40 Electricity Maps zones (φ 0.1-0.5, slack 12-24 h, headroom +20-50%) and 1% meter noise. Inflexible load is either flat or a real Google power-domain shape, with day-to-day variability bootstrapped from the May 2019 traces. The observer correlates hour-of-day residuals of meter and signal. An ordinary busy-by-day load that happens to line up with a solar grid is therefore *not* flagged (tested).
+
+| Scheduler (Google load) | AUC, 7 days | 30 days | 90 days | Saving kept |
+|---|---|---|---|---|
+| Real-time carbon signal | 0.92 | 0.96 | 0.99 | 100% |
+| Signal + noise (σ = ½ signal std) | 0.84 | 0.91 | 0.97 | 78% |
+| Monthly time-of-day profile | 0.52 | 0.61 | 0.74 | 70% |
+
+- **Dithering does not hide it.** Random noise in the schedule costs 22% of the saving and still leaves AUC ≥ 0.84 after one week.
+- **A time-of-day schedule does.** Scheduling on each month's average carbon by hour is indistinguishable from ordinary load for two weeks (AUC 0.52). It is only weakly detectable after 90 days, through month-to-month profile changes, and keeps 70% of the saving. It responds to the predictable part of the grid's cycle and ignores day-to-day weather, which is exactly the part the detector sees.
+- **The meter reveals the operator's parameters.** By the virtual-battery theorem (F22), cumsum(1 − d) is the backlog of deferred work. On flat load, 30 days of meter data give the flexible share within 0.015 (all facilities classified correctly), the headroom within 0.025, the virtual battery energy s·φ within 5% (median), and the slack (12 vs 24 h) correctly for 97% of facilities. With real Google load the absolute values are biased, but the flexible shares are still ordered perfectly over a year, and slack is right for 86-87%.
+
+Why it matters: the flexible share and slack describe an operator's workload mix and its customers' deadlines. Carbon-aware scheduling as usually built broadcasts them. Power side channels in data centres are known (e.g. power attacks on oversubscribed facilities), and non-intrusive load monitoring is a mature field; I found no prior work on detecting carbon-awareness, or inferring its parameters, from a facility meter. *Limitations:* simulated facilities with fluid work; an observer with hourly data and the same public signal; no adversarial operator strategies beyond the three tested.
+
+## 5e. The cooling penalty
+
+**Finding 21: carbon-aware schedulers overstate their savings because clean hours are hot, and a closed-form law says where.** A facility draws IT power × PUE, and PUE rises with outdoor temperature because chillers lose efficiency as the heat-rejection temperature climbs. So the carbon cost of an IT kWh is c(t)·PUE(t). Extending F25's identity, the true saving of a draw d (mean 1) is −cov(c·PUE, d), while an operator who multiplies a carbon-only saving by the annual PUE claims −mean(PUE)·cov(c, d). The gap is the *cooling penalty*.
+
+Setup: the 47 Electricity Maps zones that host cloud regions, each with hourly 2022 dry- and wet-bulb temperature at one data-centre hub (Open-Meteo / ERA5, UTC). Two first-principles cooling archetypes: *hyperscale* (warm 18 °C chilled water, cooling tower on wet bulb, water-side economiser; annual PUE median 1.09) and *legacy* (7 °C chilled water, air-cooled condenser on dry bulb, no economiser; median 1.40). Facility as in Section 3: flat IT load, φ ∈ {0.25, 0.5}, slack 24 h, IT headroom +20%, +50% or uncapped.
+
+- **Clean hours are hot.** In 72% of zones the mean daily profiles of carbon and PUE are anti-correlated (ρ < −0.3): solar makes midday both clean and hot.
+- **The claim is too high.** Pooled over zones, the carbon-only scheduler's claimed saving exceeds its true saving by 2.2-2.7% (hyperscale) and 6.9-8.3% (legacy). The median zone loses 1.5-1.8% and 4.2-5.0%. The tail is heavy: in 13 of 47 zones a legacy plant loses over 10% of the claim, up to 61% in Singapore, 45% in Johannesburg and 42% in Mumbai.
+- **A closed-form law predicts it.** If the schedule moves against the carbon signal, penalty / claim ≈ −ρ · (c̄ / σ_c) · (σ_PUE / P̄), with ρ and the σs of within-day (25 h detrended) hourly variation. Against the LP: R² 0.77-0.98, Spearman 0.83-0.98 across the 12 configurations, median ratio 0.98-1.29. The factor c̄/σ_c is the inverse of the carbon signal's coefficient of variation, so the penalty is largest on dirty grids with a small relative swing (Singapore, Mumbai, Johannesburg). This is the regime where F15 found CV a poor guide to capacity value; here CV is exactly the right indicator.
+- **Scheduling on c·PUE recovers part of it, and works where carbon cannot.** The cooling-aware schedule saves 0.5-1.4% (hyperscale) and 2.5-3.6% (legacy) more true carbon pooled; in Singapore (legacy) it raises the true saving 2.5-fold. On the flat-signal grids of Hong Kong and Jakarta, where carbon-only scheduling saves nothing, weather alone saves up to 1.0 (hyperscale) and 3.6 g/kWh (legacy).
+
+*Across years (2020-2022, each year's carbon and ERA5 weather):* the pooled penalty is 1.8-2.7% (hyperscale) and 6.5-8.4% (legacy) every year, with 11-15 zones above 10% for legacy plants; per-zone penalties rank-correlate at Spearman 0.83-0.95 between consecutive years. Out of sample, the law evaluated on *last* year's carbon and weather predicts this year's LP penalty with R² 0.79-0.90 (Spearman 0.75-0.93), and flags 62 of 67 zone-years that exceed 10% (5 misses, 31 false alarms; the law runs slightly high, median ratio 1.0-1.3). So an operator can screen sites for the cooling penalty from public data before scheduling anything. Outputs: `results/cooling_years*.csv`.
+
+Novelty: cooling-aware workload management is established for single sites with on-site renewables (Liu et al., SIGMETRICS 2012, who plan around outside-air cooling and solar). I found no measurement of how much grid-carbon-aware schedulers overstate their savings by ignoring PUE variation, across real grids and weather, nor a closed form for it. *Limitations:* steady-state hourly cooling model with assumed parameters (two archetypes bracket the range); one hub per zone; PUE independent of IT load (fixed losses would make it fall with load); no thermal storage or lag. Outputs: `results/cooling_*.csv`, `figures/cooling.png`.
+
+## 5f. The third battery: chilled-water storage
+
+**Finding 22: a chilled-water tank is a weather battery, not a carbon battery. Dispatched on grid carbon, as vendors propose, it keeps 1-26% of its value and raises emissions in 9-16 of 47 zones.** A tank lets the cooling plant make cold before it is needed. One unit of cold costs m(t) units of electricity (1/COP; zero under free cooling), so its carbon cost is c(t)·m(t), and the tank moves production to hours where that product is low. This is a third storage device beside the virtual battery of flexible IT load (F22) and a real Li-ion battery (F23). Model: cyclic hourly LP per zone, tank of 1-12 h of mean heat load, chiller 1.5× peak, 1%/day standing loss, flat IT load, the 47 zones and two plants of F26 (2022).
+
+- **Small but real.** A 4 h tank cuts facility emissions by a median 0.23% (hyperscale) and 0.72% (legacy), 1.0 and 3.5 g per kWh of IT; 12 h reaches 0.35% and 1.0%. Cooling is only 13% of a legacy facility's emissions (median), which caps what any cooling-side storage can do.
+- **Weather drives it.** Dispatching the 4 h tank on the weather alone (mean c × m) keeps 84% (hyperscale) and 64% (legacy) of its value pooled; dispatching on grid carbon alone (c × mean m), which is how chilled-water storage is marketed for data centres ("charge when carbon-free electricity is available"), keeps 1% and 26%. In 16 (hyperscale) and 9 (legacy) zones carbon-only dispatch *raises* emissions, because it makes cold in clean midday hours when chillers are least efficient (F26's clean-hours-are-hot effect). Carbon-led dispatch does best on grids whose clean hours are at night or in cool seasons (Ontario, Switzerland, Denmark: 75-95% kept, legacy).
+- **Exchange rate.** Per kWh of capacity, a 4 h tank saves as much carbon as 0.08 (hyperscale) or 0.31 (legacy) kWh of 4 h, 90% Li-ion battery (median; F23 spread law). A thermal kWh is worth roughly m, a fraction of an electric kWh. The exception is grids with a small daily carbon spread (Singapore, Korea, Israel, Hong Kong, Jakarta, Noida, Mumbai): there a battery's losses eat its whole gain (F23), while the tank still saves 2-8 g/kWh (legacy) because its price signal is the weather.
+- **It stacks with IT shifting.** Run after cooling-aware IT shifting (φ 0.5, +20%, 24 h slack), the tank adds its full stand-alone saving (pooled ratio 1.00; worst zone 0.93). It is worth 10% (hyperscale) and 30% (legacy) of what shifting the IT load saves.
+
+So the three batteries rank clearly: shifting flexible IT load first (lossless, free, F22), then cooling storage for older plants in hot climates, dispatched on c × COP, then electric batteries (F23). Prior work: TES for data centres is studied for cost and peak shaving (e.g. Zheng et al., HPCA 2014; UMass e-Energy 2016 dispatches on price) and promoted by vendors for carbon; I found no carbon analysis that separates its weather and grid drivers or prices it against electric storage and IT shifting. *Limitations:* tank sized in heat-hours with no embodied carbon counted; chiller capacity and losses assumed; hourly steady-state plant; the economiser is assumed able to charge the tank. Outputs: `results/thermal_*.csv`, `figures/thermal.png`.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
@@ -317,7 +427,7 @@ Per-zone shadow prices rank-correlate at Spearman 0.93-0.97 between years, so a 
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest              # 73 tests
+.venv/bin/python -m pytest              # 84 tests
 .venv/bin/python scripts/reproduce.py   # ~20 s; results/repro_*.csv, figures/repro_*.png
 .venv/bin/python scripts/facility_experiments.py  # ~80 s; results/facility_*.csv, figures/facility_*.png
 .venv/bin/python scripts/llm_power_batch.py       # ~20 min, Apple Silicon + `brew install macmon`

@@ -115,26 +115,21 @@ def figures(n) -> tuple[Path, Path]:
     return f1, f2
 
 
-# ----------------------------------------------------------------------------- document
-def build() -> None:
-    n = load()
-    ms, hs, ho, bo, ds = n["ms"], n["hs"], n["ho"], n["bo"], n["ds"]
-    f1, f2 = figures(n)
-    pc = lambda v, d=0: f"{v * 100:.{d}f}%"  # noqa: E731
-    lo_hi = lambda a, b: f"{min(a, b) * 100:.0f}–{max(a, b) * 100:.0f}%"  # noqa: E731
-
+# ----------------------------------------------------------------------------- shared layout
+def styles() -> dict:
+    """Paragraph styles and builders shared by both workshop papers."""
     body = ParagraphStyle("b", fontName="Times-Roman", fontSize=9.5, leading=11.4, alignment=TA_JUSTIFY, spaceAfter=4.5)
     h1 = ParagraphStyle("h1", parent=body, fontName="Times-Bold", fontSize=10.5, leading=12.5, spaceBefore=6, spaceAfter=3, alignment=0, keepWithNext=1)
-    title = ParagraphStyle("t", parent=body, fontName="Times-Bold", fontSize=15.5, leading=18.5, alignment=TA_CENTER, spaceAfter=5)
-    auth = ParagraphStyle("a", parent=body, fontName="Times-Roman", fontSize=10.5, alignment=TA_CENTER, spaceAfter=1)
-    note = ParagraphStyle("n", parent=body, fontName="Times-Italic", fontSize=8.6, alignment=TA_CENTER)
     cap = ParagraphStyle("c", parent=body, fontSize=8.3, leading=9.8, spaceAfter=7)
-    ref = ParagraphStyle("r", parent=body, fontSize=8.0, leading=9.4, spaceAfter=2, leftIndent=12, firstLineIndent=-12, alignment=0)
     bul = ParagraphStyle("bl", parent=body, leftIndent=10, bulletIndent=1, spaceAfter=2.5)
-
-    p = lambda t: Paragraph(t, body)  # noqa: E731
-    h = lambda t: Paragraph(t, h1)  # noqa: E731
-    b = lambda t: Paragraph(t, bul, bulletText="•")  # noqa: E731
+    S = {"body": body, "cap": cap,
+         "title": ParagraphStyle("t", parent=body, fontName="Times-Bold", fontSize=15.5, leading=18.5, alignment=TA_CENTER, spaceAfter=5),
+         "auth": ParagraphStyle("a", parent=body, fontName="Times-Roman", fontSize=10.5, alignment=TA_CENTER, spaceAfter=1),
+         "note": ParagraphStyle("n", parent=body, fontName="Times-Italic", fontSize=8.6, alignment=TA_CENTER),
+         "ref": ParagraphStyle("r", parent=body, fontSize=8.0, leading=9.4, spaceAfter=2, leftIndent=12, firstLineIndent=-12, alignment=0)}
+    S["p"] = lambda t: Paragraph(t, body)
+    S["h"] = lambda t: Paragraph(t, h1)
+    S["b"] = lambda t: Paragraph(t, bul, bulletText="•")
 
     def fig(path, caption, num):
         img = Image(str(path), width=COL_W, height=COL_W * _aspect(path))
@@ -147,6 +142,38 @@ def build() -> None:
                                ("LINEBELOW", (0, -1), (-1, -1), 0.8, colors.black), ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                                ("TOPPADDING", (0, 0), (-1, -1), 1.4), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.4)]))
         return KeepTogether([Paragraph(f"<b>Table {num}.</b> {caption}", cap), t, Spacer(1, 6)])
+
+    S["fig"], S["table"] = fig, table
+    return S
+
+
+def frames() -> tuple[list, list]:
+    """First page: full-width title band over two columns; later pages: two columns."""
+    body_h = PAGE_H - 2 * MARGIN
+    col = lambda i, top, hgt: Frame(MARGIN + i * (COL_W + GUTTER), top, COL_W, hgt, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)  # noqa: E731
+    first = [Frame(MARGIN, PAGE_H - MARGIN - TITLE_H, PAGE_W - 2 * MARGIN, TITLE_H, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
+             col(0, MARGIN, body_h - TITLE_H - 8), col(1, MARGIN, body_h - TITLE_H - 8)]
+    return first, [col(0, MARGIN, body_h), col(1, MARGIN, body_h)]
+
+
+def page_no(c, d):
+    c.saveState()
+    c.setFont("Times-Roman", 8.5)
+    c.drawCentredString(PAGE_W / 2, 0.45 * inch, str(d.page))
+    c.restoreState()
+
+
+# ----------------------------------------------------------------------------- document
+def build() -> None:
+    n = load()
+    ms, hs, ho, bo, ds = n["ms"], n["hs"], n["ho"], n["bo"], n["ds"]
+    f1, f2 = figures(n)
+    pc = lambda v, d=0: f"{v * 100:.{d}f}%"  # noqa: E731
+    lo_hi = lambda a, b: f"{min(a, b) * 100:.0f}–{max(a, b) * 100:.0f}%"  # noqa: E731
+
+    S = styles()
+    body, title, auth, note, ref = S["body"], S["title"], S["auth"], S["note"], S["ref"]
+    p, h, b, fig, table = S["p"], S["h"], S["b"], S["fig"], S["table"]
 
     sh = lambda wv, col: float(ho.loc[wv, col])  # noqa: E731
     pool_a, pool_m = n["pool"].avg.to_dict(), n["pool"].marg.to_dict()
@@ -287,17 +314,7 @@ def build() -> None:
     doc = BaseDocTemplate(str(OUT), pagesize=letter, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=MARGIN,
                           title="Blend, Don't Choose: Average and Marginal Carbon Signals for Power-Capped Data Centres",
                           author="Naveen Kumar Lakkaram", creator="carbonshift build_workshop.py", subject="Carbon-aware computing")
-    body_h = PAGE_H - 2 * MARGIN
-    col = lambda i, top, hgt: Frame(MARGIN + i * (COL_W + GUTTER), top, COL_W, hgt, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)  # noqa: E731
-    first = [Frame(MARGIN, PAGE_H - MARGIN - TITLE_H, PAGE_W - 2 * MARGIN, TITLE_H, leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0),
-             col(0, MARGIN, body_h - TITLE_H - 8), col(1, MARGIN, body_h - TITLE_H - 8)]
-    later = [col(0, MARGIN, body_h), col(1, MARGIN, body_h)]
-
-    def page_no(c, d):
-        c.saveState()
-        c.setFont("Times-Roman", 8.5)
-        c.drawCentredString(PAGE_W / 2, 0.45 * inch, str(d.page))
-        c.restoreState()
+    first, later = frames()
 
     doc.addPageTemplates([PageTemplate("first", first, onPage=page_no), PageTemplate("later", later, onPage=page_no)])
     doc.build(story)

@@ -46,11 +46,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from carbonshift.cooling import HUBS, PLANTS, WEATHER, decompose, load_weather, penalty_law, plant_pue
 from carbonshift.data import load_carbon, region_groups
+from carbonshift.thermal import mech_per_heat, tes_shift
 from carbonshift.embodied import LIFETIME, per_kw, payback_years
 from carbonshift.facility import battery_shift, capped_shift
 from carbonshift.redundancy import installed_cap
 from carbonshift.temporal import shift_one_zone
+from carbonshift.exchange import exchange_rate, spread_saving_per_kwh
+from carbonshift.waterfill import effective_horizon, saving_law
 
 log = logging.getLogger("carbonshift.web")
 
@@ -76,6 +80,7 @@ SLACK_HOURS = (1, 6, 12, 24, 48, 72, 168, 336, 720, 8760)
 FACILITY_SLACK = (1, 6, 12, 24, 48, 72, 168)
 CURVE_HEADROOM_PCT = (0, 5, 10, 20, 30, 50, 75, 100, 150, 200, 300)
 YEAR = 2022
+TANK_HOURS = (0, 1, 2, 4, 8, 12)
 
 
 # --------------------------------------------------------------------------- data (loaded once)
@@ -185,6 +190,28 @@ class SignalIn(Strict):
         return v
 
 
+class CoolingIn(Strict):
+    zone: str = Field(max_length=32)
+    plant: Literal["hyperscale", "legacy"]
+    flexible_pct: int = Field(ge=5, le=95)
+    headroom_pct: int = Field(ge=5, le=300)
+    tank_hours: int = Field(default=0)
+
+    @field_validator("tank_hours")
+    @classmethod
+    def _tank(cls, v: int) -> int:
+        if v not in TANK_HOURS:
+            raise ValueError(f"tank_hours must be one of {TANK_HOURS}")
+        return v
+
+    @field_validator("zone")
+    @classmethod
+    def _hub_zone(cls, v: str) -> str:
+        if v not in HUBS or v not in ZONE_CODES:
+            raise ValueError("unknown zone (cooling covers cloud-hosting zones only)")
+        return v
+
+
 class CapacityIn(ZoneIn):
     utilization_pct: int = Field(ge=40, le=95)
     topology: Literal["design_only", "N+1 (N=4)", "2N"]
@@ -219,6 +246,13 @@ def _capped(zone: str, phi: float, cap: float, slack: int):
     return capped_shift(carbon()[zone].to_numpy(), phi, cap, slack)
 
 
+def _battery_equivalent(ci, saving_g: float) -> dict:
+    """Equal-carbon real battery (4 h, 90% round trip) per kW of mean load, via the daily spread law (F23)."""
+    b = spread_saving_per_kwh(ci, 4.0, 0.90)
+    x = exchange_rate(saving_g, b)
+    return {"battery_equivalent_kwh": _r(x, 1) if math.isfinite(x) else None, "battery_saves_nothing": b <= 0 and saving_g > 0}
+
+
 @lru_cache(maxsize=512)
 def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, week: int) -> dict:
     phi = flex_pct / 100
@@ -227,12 +261,13 @@ def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, we
     ideal = _capped(zone, phi, math.inf, slack)
     ideal_saving = ideal.baseline_g - ideal.optimised_g
     retained = (r.baseline_g - r.optimised_g) / ideal_saving * 100 if ideal_saving > 1e-9 else None
+    ci = carbon()[zone].to_numpy()
     curve = []
     for h in CURVE_HEADROOM_PCT:
         c = _capped(zone, phi, 1 + h / 100, slack)
         curve.append({"headroom_pct": h, "reduction_pct": _r(c.facility_reduction_pct),
+                      "law_reduction_pct": _r(saving_law(ci, phi, 1 + h / 100, slack) / c.baseline_g * 100) if h > 0 else 0.0,
                       "retained_pct": _r((c.baseline_g - c.optimised_g) / ideal_saving * 100, 1) if ideal_saving > 1e-9 else None})
-    ci = carbon()[zone].to_numpy()
     sl = slice(week * 168, week * 168 + 168)
     return {
         "baseline_g_per_kwh": _r(r.baseline_g), "optimised_g_per_kwh": _r(r.optimised_g),
@@ -240,6 +275,10 @@ def compute_facility(zone: str, flex_pct: int, slack: int, headroom_pct: int, we
         "retained_of_ideal_pct": _r(retained, 1) if retained is not None else None,
         "saving_g_per_flex_kwh": _r(r.saving_per_flex_kwh),
         "uncapped_peak_draw": _r((1 - phi) + ideal.served.max()),
+        "law": {"reduction_pct": _r(saving_law(ci, phi, cap, slack) / r.baseline_g * 100) if headroom_pct > 0 else 0.0,
+                "peak_draw": _r(1 + slack * phi), "virtual_battery_hours": _r(slack * phi, 1),
+                "effective_horizon_hours": effective_horizon(phi, cap, slack) if headroom_pct > 0 else None,
+                **_battery_equivalent(ci, r.baseline_g - r.optimised_g)},
         "curve": curve,
         "week": {"ci": [_r(v, 1) for v in ci[sl]], "draw": [_r((1 - phi) + v, 3) for v in r.served[sl]],
                  "cap": _r(cap, 3), "base": _r(1 - phi, 3)},
@@ -289,6 +328,60 @@ def compute_capacity(zone: str, util_pct: int, topology: str, build: str, flex_p
         "embodied_kg_per_kw": _r(emb, 0), "lifetime_years": LIFETIME[build],
         "payback_years": _r(pay, 2) if math.isfinite(pay) else None,
         "pays_back_in_life": bool(math.isfinite(pay) and pay <= LIFETIME[build]),
+    }
+
+
+@lru_cache(maxsize=1)
+def weather() -> pd.DataFrame | None:
+    path = Path(str(WEATHER).format(year=YEAR))
+    return load_weather(YEAR) if path.exists() else None
+
+
+@lru_cache(maxsize=256)
+def compute_tank(zone: str, plant: str, hours: int) -> dict | None:
+    """Chilled-water tank (F27): carbon-optimal dispatch on c x 1/COP vs dispatch on grid carbon only."""
+    if hours == 0:
+        return None
+    pl = PLANTS[plant]
+    ci = carbon()[zone].to_numpy()
+    m = mech_per_heat(weather()[f"{zone}|{'wb' if pl.wet_bulb else 'db'}"].to_numpy(), pl)
+    facility = float((ci * (1 + pl.fixed + pl.fans + m)).mean())
+    best = tes_shift(ci, m, hours)
+    q = tes_shift(ci, np.full_like(m, m.mean()), hours).produced
+    carbon_only = best.baseline_g - float((ci * m * q).mean())
+    batt = spread_saving_per_kwh(ci, 4.0, 0.90)
+    return {"hours": hours, "saving_g": _r(best.saving_g), "saving_pct": _r(best.saving_g / facility * 100, 2),
+            "carbon_only_saving_g": _r(carbon_only),
+            "battery_kwh_per_tank_kwh": _r(best.saving_g / hours / batt, 2) if batt > 0.05 else None,
+            "battery_saves_little": bool(batt <= 0.05 or best.saving_g / hours / batt > 1)}
+
+
+@lru_cache(maxsize=256)
+def compute_cooling(zone: str, plant: str, flex_pct: int, headroom_pct: int, tank_hours: int = 0) -> dict:
+    """Cooling penalty (F26): true vs claimed saving when PUE follows the weather."""
+    ci = carbon()[zone].to_numpy()
+    p = plant_pue(weather(), zone, plant)
+    phi, cap = flex_pct / 100, 1 + headroom_pct / 100
+    out = {}
+    for name, sig in (("carbon_only", ci), ("cooling_aware", ci * p)):
+        r = capped_shift(sig, phi, cap, 24)
+        out[name] = decompose(ci, p, (1 - phi) + r.served)
+    claimed, true_c, true_w = out["carbon_only"]["claimed"], out["carbon_only"]["true"], out["cooling_aware"]["true"]
+    base = float((ci * p).mean())
+    law = penalty_law(ci, p)
+    day_c, day_p = ci.reshape(-1, 24).mean(0), p.reshape(-1, 24).mean(0)
+    return {
+        "hub": HUBS[zone][0], "pue_mean": _r(p.mean(), 3), "pue_min": _r(p.min(), 3), "pue_max": _r(p.max(), 3),
+        "baseline_g_per_it_kwh": _r(base, 1),
+        "claimed_g": _r(claimed), "true_carbon_only_g": _r(true_c), "true_cooling_aware_g": _r(true_w),
+        "penalty_pct": _r((claimed - true_c) / claimed * 100, 1) if claimed > 0.5 else None,
+        "law_penalty_pct": _r(law * 100, 1) if math.isfinite(law) and claimed > 0.5 else None,
+        "cooling_aware_gain_pct": _r((true_w / true_c - 1) * 100, 1) if true_c > 0.5 else None,
+        "flat_signal": bool(claimed <= 0.5),
+        "tank": compute_tank(zone, plant, tank_hours),
+        "day": {"hour": list(range(24)), "ci_pct": [_r(v / day_c.mean() * 100, 1) for v in day_c],
+                "pue_pct": [_r(v / day_p.mean() * 100, 2) for v in day_p],
+                "ci": [_r(v, 0) for v in day_c], "pue": [_r(v, 3) for v in day_p]},
     }
 
 
@@ -509,6 +602,21 @@ def create_app() -> FastAPI:
     @app.post("/api/signal")
     def signal(body: SignalIn):
         return run(compute_signal, body.ba, body.w_pct)
+
+    @app.get("/api/cooling")
+    def cooling_meta():
+        if weather() is None:
+            raise HTTPException(404, "weather data not available")
+        names = {z["code"]: z["name"] for z in zones_meta()}
+        zones = sorted(({"code": z, "name": names.get(z, z), "hub": HUBS[z][0]} for z in HUBS if z in ZONE_CODES),
+                       key=lambda d: d["name"])
+        return {"zones": zones, "plants": list(PLANTS), "tank_hours": TANK_HOURS}
+
+    @app.post("/api/cooling")
+    def cooling(body: CoolingIn):
+        if weather() is None:
+            raise HTTPException(404, "weather data not available")
+        return run(compute_cooling, body.zone, body.plant, body.flexible_pct, body.headroom_pct, body.tank_hours)
 
     @app.get("/api/siting")
     def siting():

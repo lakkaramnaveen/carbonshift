@@ -52,6 +52,10 @@ def test_facility_and_battery(client):
     d = f.json()
     assert 0 < d["reduction_pct"] < d["ideal_reduction_pct"]
     assert len(d["week"]["ci"]) == 168 and max(d["week"]["draw"]) <= d["week"]["cap"] + 1e-6
+    assert d["law"]["peak_draw"] == 13.0 and d["law"]["virtual_battery_hours"] == 12.0 and d["law"]["effective_horizon_hours"] == 60
+    assert 0 < d["law"]["reduction_pct"] <= d["ideal_reduction_pct"] * 1.2
+    assert all(c["law_reduction_pct"] is not None for c in d["curve"])
+    assert d["law"]["battery_equivalent_kwh"] > 0 and d["law"]["battery_saves_nothing"] is False
     b = client.post("/api/battery", json={"zone": ZONE, "energy_minutes": 10, "reserve_pct": 0, "efficiency_pct": 90})
     assert b.status_code == 200 and 0 <= b.json()["reduction_pct"] < 2
 
@@ -185,3 +189,39 @@ def test_signal_endpoint(client, fake_signal):
     for bad in ({"ba": "NOPE", "w_pct": 50}, {"ba": "ZZZ", "w_pct": 55}, {"ba": "ZZZ", "w_pct": 110},
                 {"ba": "ZZZ", "w_pct": 50, "x": 1}, {"ba": "Z" * 40, "w_pct": 50}):
         assert client.post("/api/signal", json=bad).status_code == 422
+
+
+def test_cooling_endpoint_matches_results(client):
+    meta = client.get("/api/cooling").json()
+    codes = {z["code"] for z in meta["zones"]}
+    assert ZONE in codes and len(codes) == 47 and set(meta["plants"]) == {"hyperscale", "legacy"}
+    d = client.post("/api/cooling", json={"zone": ZONE, "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20}).json()
+    ref = pd.read_csv(server.ROOT / "results" / "cooling_per_zone.csv")
+    ref = ref[(ref.zone == ZONE) & (ref.plant == "legacy") & (ref.phi == 0.5) & (ref["head"] == 0.2)].iloc[0]
+    assert d["claimed_g"] == pytest.approx(ref.claimed_g, abs=0.01)
+    assert d["true_carbon_only_g"] == pytest.approx(ref.true_carbon_only_g, abs=0.01)
+    assert d["penalty_pct"] == pytest.approx(ref.penalty_pct_of_claim, abs=0.06)
+    assert d["true_cooling_aware_g"] >= d["true_carbon_only_g"]
+    assert len(d["day"]["pue"]) == 24 and d["hub"] == "Santa Clara"
+    flat = client.post("/api/cooling", json={"zone": "HK", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20}).json()
+    assert flat["flat_signal"] and flat["penalty_pct"] is None and flat["true_cooling_aware_g"] > 1
+    for bad in ({"zone": "AU-QLD", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20},   # no hub
+                {"zone": ZONE, "plant": "mainframe", "flexible_pct": 50, "headroom_pct": 20},
+                {"zone": ZONE, "plant": "legacy", "flexible_pct": 50, "headroom_pct": 0},
+                {"zone": ZONE, "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20, "x": 1}):
+        assert client.post("/api/cooling", json=bad).status_code == 422
+
+
+def test_cooling_tank_matches_results(client):
+    d = client.post("/api/cooling", json={"zone": "ZA", "plant": "legacy", "flexible_pct": 50,
+                                          "headroom_pct": 20, "tank_hours": 4}).json()
+    ref = pd.read_csv(server.ROOT / "results" / "thermal_per_zone.csv")
+    ref = ref[(ref.zone == "ZA") & (ref.plant == "legacy") & (ref.capacity_h == 4)].iloc[0]
+    assert d["tank"]["saving_g"] == pytest.approx(ref.tes_saving_g, abs=0.01)
+    assert d["tank"]["carbon_only_saving_g"] == pytest.approx(ref.tes_carbon_only_g, abs=0.01)
+    assert d["tank"]["carbon_only_saving_g"] < 0          # Johannesburg: carbon-led charging backfires
+    assert d["tank"]["battery_saves_little"]
+    none = client.post("/api/cooling", json={"zone": "ZA", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20}).json()
+    assert none["tank"] is None
+    bad = {"zone": "ZA", "plant": "legacy", "flexible_pct": 50, "headroom_pct": 20, "tank_hours": 3}
+    assert client.post("/api/cooling", json=bad).status_code == 422

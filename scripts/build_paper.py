@@ -317,7 +317,11 @@ def build(n: dict) -> None:
         f"{f(pg(24, 1.2, 'cpu_servers_pays_back_in_life_pct'), 0)}% of zones. Tier redundancy (N+1, 2N) offers this headroom for free: using the spare path "
         f"for sheddable work closes {f((rg(0.65, 'N+1 (N=4)', 'perfect_pct') - rg(0.65, 'design_only', 'perfect_pct')) / (rg(0.65, 'design_only', 'ideal_pct') - rg(0.65, 'design_only', 'perfect_pct')) * 100, 0)}-"
         f"{f((rg(0.65, '2N', 'perfect_pct') - rg(0.65, 'design_only', 'perfect_pct')) / (rg(0.65, 'design_only', 'ideal_pct') - rg(0.65, 'design_only', 'perfect_pct')) * 100, 0)}% "
-        "of the gap to the ideal, and maintenance and failures erode almost none of it. Finally, measurements of LLM inference on an Apple M4 Pro GPU "
+        "of the gap to the ideal, and maintenance and failures erode almost none of it. These LP results follow from a closed-form *water-filling law*: "
+        "the share of the saving kept depends only on headroom per unit of flexible load, the saving is φ·A·sinc(πφ/(φ+h)) for daily swing A, and the "
+        "value of a kW is a daily water-level area (R² 0.97-0.98 against the LP). Underneath, a flexible workload under a cap is exactly a lossless "
+        "battery of energy s·φ, which explains why UPS batteries barely help and why losses, not storage, stop a scheduler from serving both average "
+        "and marginal carbon ledgers. Finally, measurements of LLM inference on an Apple M4 Pro GPU "
         f"show that batching cuts energy per token by {f(lg('Qwen2.5-1.5B', 1, 'all_j_per_tok') / lg('Qwen2.5-1.5B', 32, 'all_j_per_tok'), 1)}x for "
         f"{f(lg('Qwen2.5-1.5B', 32, 'all_power_w') / lg('Qwen2.5-1.5B', 1, 'all_power_w'), 1)}x more power, a larger lever than temporal shifting. "
         "All code, data and a secure interactive explorer are released.")
@@ -354,7 +358,7 @@ def build(n: dict) -> None:
         "**The redundancy dividend:** using N+1 and 2N spare capacity as zero-embodied-carbon headroom for sheddable work, evaluated with maintenance and "
         "random failures, plus a negative result for carbon-aware maintenance scheduling (Sec. 6).",
         "**Measurements** of GPU power, throughput and energy per token versus LLM batch size, and of UPS-battery carbon arbitrage (Secs. 7-8), plus robustness to three years of traces and to forecast error (Secs. 4.3, 5.3).",
-        "**An open artifact:** tested code (73 tests), all data, and a hardened interactive web explorer (Sec. 11).",
+        "**An open artifact:** tested code (84 tests), all data, and a hardened interactive web explorer (Sec. 11).",
     ])
 
     # ------------------------------------------------------------------ 2 background
@@ -463,6 +467,39 @@ def build(n: dict) -> None:
         "includes floor cooling, and the documented meaning of the trace's bad-data flag contradicts the data, so we treat the 24 rows flagged True as bad.")
     P.figure(FIG / "diurnal_headroom.png", "Share of the ideal saving kept at each Google power domain's real headroom (pooled over 120 grids).", width=4.6)
     P.figure(FIG / "facility_zones.png", "Facility-level reduction versus headroom for four grids (φ = 0.5, 24 h slack); dotted lines mark the uncapped ideal.", width=4.6)
+
+    wf = pd.read_csv(RES / "waterfill_summary.csv", index_col=0)["value"]
+    P.h("4.5 A closed-form law: water-filling", 2)
+    P.p(
+        "The results above come from an LP, but they follow from one picture. With 24 h slack, a day's flexible work (24φ units) runs at its maximum rate "
+        "r = φ + h in the day's cleanest hours, filling k = 24φ/r hours like water filling the lowest parts of the price curve. Four laws follow, each "
+        "tested against the LP outputs. (i) **Homogeneity theorem.** The inflexible load only consumes capacity, so the flexible sub-problem has arrivals φ "
+        "and capacity φ + h; scaling both by λ scales the LP solution by λ. The share of the ideal saving kept therefore depends on (φ, h) only through "
+        f"**h/φ**, the headroom per unit of flexible load (max difference {wf['homogeneity_max_abs_diff_retained']:.4f} over "
+        f"{wf['homogeneity_pairs']:.0f} zone-level pairs). (ii) **Closed form.** For a sinusoidal day of amplitude A, the k cleanest hours average "
+        "M − A·sinc(πq) with q = φ/(φ + h), so the saving is **φ·A·sinc(πq)** and the share kept is sinc(πq). With A taken as the mean daily (mean − min) "
+        f"of each zone's trace, φ·A predicts the uncapped saving at R² = {wf['uncapped_r2_phiA_vs_lp']:.3f}, and φ·A·sinc(πq) the capped saving at "
+        f"R² = {wf['saving_r2_finite_caps']:.3f} over {wf['saving_cases']:.0f} LP solves (median error {wf['saving_median_rel_err'] * 100:.1f}%). "
+        "(iii) **The value of a kW is a water-level area.** Differentiating the order-statistic saving gives dS/dh = Σ over filled hours of (water level − price): "
+        f"the area between the price of the marginal filled hour and the cheaper ones. Computed from a sort of each day, it matches the LP shadow prices of "
+        f"Sec. 5 at R² = {wf['value_r2']:.3f} (median ratio {wf['value_median_ratio']:.3f}, {wf['value_cases']:.0f} zone-years). For a sinusoidal day it is "
+        "π·A·q²·|sinc′(πq)|: linear in the daily amplitude and independent of the mean, which derives the swing law of Sec. 5.4. (iv) **Peak draw.** "
+        "An hour can collect the flexible arrivals of all s + 1 hours whose s-hour window contains it, so the uncapped schedule peaks at 1 + s·φ "
+        f"({wf['peak_law_phi0.5']:.0f}× for φ = 0.5, matching the LP exactly). Together these laws let an operator estimate both the saving and the "
+        "value of new capacity from a sort of each day's prices, with no optimiser.")
+    vb = pd.read_csv(RES / "virtual_battery_summary.csv", index_col=0)["value"]
+    P.p(
+        "**Flexible load is a lossless battery.** With backlog B = arrivals − served, the cumulative-flow constraints read 0 ≤ B ≤ s·φ and −h ≤ ΔB ≤ φ, "
+        "and the objective is linear in ΔB. Capped shifting is therefore exactly a battery of energy s·φ, discharge power φ, charge power h and 100% "
+        f"efficiency, up to the boundary condition (median difference {vb['equiv_median_abs_rel_diff'] * 100:.2f}% on 20 real zones). Three consequences. "
+        "(a) The virtual battery refills in s·φ/h hours, so tight caps plan beyond the nominal slack; water-filling over T = s·max(1, φ/h) reduces the "
+        f"bias of fixed blocks at +5% headroom from {vb['block_law_slack24_bias_at_cap1.05'] * 100:.0f}% to {vb['horizon_law_slack24_bias_at_cap1.05'] * 100:.1f}% "
+        f"(R² {vb['horizon_law_slack24_r2']:.3f} at 24 h slack, {vb['horizon_law_slack168_r2']:.3f} at 168 h). (b) A 10-minute UPS is a battery with 1/72 of the "
+        "virtual energy of half-flexible load and with losses, which explains Sec. 7. (c) It predicts why blending signals works for load (Sec. 5.6) but "
+        f"not for real batteries: a *lossless* 1 h battery on the 0.7 blend worsens neither ledger in any of {vb['bas']:.0f} BAs "
+        f"({vb['lossless_w0.7_raises_avg_pct']:.0f}% / {vb['lossless_w0.7_raises_marg_pct']:.0f}%), while at 90% round trip it worsens the average ledger in "
+        f"{vb['eta90_w0.7_raises_avg_pct']:.0f}%. Round-trip loss, not storage, is the obstacle.")
+    P.figure(FIG / "waterfill_law.png", "The water-filling law. Left: share of the ideal saving kept versus h/φ for three flexible shares (they coincide, by the homogeneity theorem) and the sinc law. Middle: closed-form versus LP saving. Right: water-level area versus LP shadow price.")
 
     # ------------------------------------------------------------------ 5 shadow price
     P.h("5 The Carbon Price of a Kilowatt")
@@ -636,6 +673,92 @@ def build(n: dict) -> None:
         "For migratable work, headroom in clean regions is the binding resource; temporal flexibility matters mainly for work that cannot move.")
 
     # ------------------------------------------------------------------ 6 redundancy
+    cy = pd.read_csv(RES / "curtailment_years_summary.csv", index_col=0)["value"]
+    sc = pd.read_csv(RES / "curtailment_supply_curve.csv", index_col=0)["value"]
+    cf = pd.read_csv(RES / "curtailment_fleet.csv")
+    cf = cf[(cf.marginal == "gas_constant") & (cf.year == 2022)]
+    cg = lambda cap, strat, p, col="saving_t": float(cf[(cf.cap == cap) & (cf.strategy == strat) & (cf.fleet_mw == p)][col].iloc[0])  # noqa: E731
+    P.h("5.8 When does carbon-aware computing saturate?", 2)
+    P.p(
+        "All results so far, like the literature, treat the grid signal as exogenous. That fails as data-centre load grows. We first asked whether a herd "
+        "of carbon-aware facilities could raise the marginal emission rate by climbing the merit order. Quadratic emission supply curves fitted per U.S. BA "
+        f"and season ({sc['supply_ba_seasons']:.0f} fits, EIA-930) show no consistent slope: the marginal rate changes by a median {sc['supply_median_abs_change_p10_p90'] * 100:.1f}% "
+        f"between low- and high-output hours and rises in only {sc['supply_share_rising'] * 100:.0f}% of cases. What *is* finite is curtailed renewable energy, the one "
+        "supply that is zero-carbon at the margin. We model a new fleet of mean load P with hourly cost m·max(0, L_t − C_t) (C_t curtailed MWh, m = 490 g/kWh "
+        "gas margin), using CAISO's public 5-minute production and curtailment data for 2021-2024 "
+        f"({cy['curtailed_twh_2021']:.1f}, {cy['curtailed_twh_2022']:.1f}, {cy['curtailed_twh_2023']:.1f} and {cy['curtailed_twh_2024']:.1f} TWh curtailed). A coordinated fleet "
+        "solves the convex problem as an LP. A herd of facilities, each optimising alone on an exogenous signal, is scored on the same cost.")
+    P.p(
+        f"**Saturation.** With +20% headroom the coordinated saving per flexible kWh falls from {cg(1.2, 'coordinated', 100, 'saving_g_per_flex_kwh'):.0f} g at 0.1 GW to "
+        f"{cg(1.2, 'coordinated', 1000, 'saving_g_per_flex_kwh'):.0f} g at 1 GW and to zero near 8 GW, where the fleet absorbs nearly all curtailment just by running. "
+        "Total avoided emissions are hump-shaped in fleet size and peak at 0.5-2 GW in every year. **Herding.** The uncapped schedule, the paper-style "
+        "upper bound, puts all flexible work into the single cleanest hour (a 13× peak). From 0.5-1 GW upward the herd overflows that hour's curtailment and "
+        f"abandons the curtailed hours it would have used anyway, *raising* emissions by up to {-cy['herd_worst_kt_2022_capinf']:.0f} kt/yr in 2022 "
+        f"({-cy['herd_worst_kt_2024_capinf']:.0f} kt in 2024). With a +20% or +50% cap, the uncoordinated herd achieves "
+        f"{min(cy[f'herd_min_share_of_coord_{y}_cap{c}'] for y in (2021, 2022, 2023, 2024) for c in (1.2, 1.5)) * 100:.0f}-100% of the coordinated optimum in "
+        "every year. The facility power cap, which limits one site's saving (Sec. 4), is what keeps a fleet of carbon-aware sites safe. Daily water-filling "
+        f"against curtailment predicts the coordinated absorption within 5% (ratio {min(cy[f'closed_form_over_lp_min_{y}'] for y in (2021, 2022, 2023, 2024)):.2f}-"
+        f"{max(cy[f'closed_form_over_lp_max_{y}'] for y in (2021, 2022, 2023, 2024)):.3f}). With an hour-of-day marginal signal in place of the curtailment model, "
+        "savings never saturate, which is an artefact: an hourly factor does not know how much clean energy is left.")
+    P.figure(FIG / "curtailment_fleet.png", "A new flexible fleet on CAISO's 2022 grid. Left: avoided emissions versus a run-on-arrival fleet; uncoordinated facilities (herd) backfire without a power cap. Right: share of fleet energy served by curtailed renewables, with the daily water-filling formula.")
+
+    sx = pd.read_csv(RES / "sidechannel_summary.csv", index_col=0)["value"]
+    P.h("5.9 The power meter as a side channel", 2)
+    P.p(
+        "With hourly draw d scaled to mean 1, the carbon saved against a flat draw is exactly −cov(c, d) (verified to 10⁻¹¹ g/kWh): saving carbon *is* leaving a "
+        "negative covariance between the facility's meter and the public carbon signal. We simulate "
+        f"{sx['facilities']:.0f} facilities on {sx['zones']:.0f} zones with flat or real Google load shapes (day-to-day variability bootstrapped from the traces) "
+        "and 1% meter noise. An observer correlates hour-of-day residuals of meter and signal, so ordinary diurnal load is not flagged. On realistic load, "
+        f"real-time carbon-aware scheduling is detected with AUC {sx['auc_google_realtime_7d']:.2f} after 7 days and {sx['auc_google_realtime_90d']:.2f} after 90. "
+        f"Dithering the signal costs {100 - sx['saving_kept_google_dither_pooled'] * 100:.0f}% of the saving and still leaves AUC {sx['auc_google_dither_7d']:.2f}. "
+        f"Scheduling on a monthly time-of-day profile is undetectable for two weeks (AUC {sx['auc_google_time_of_day_14d']:.2f}), reaches only "
+        f"{sx['auc_google_time_of_day_90d']:.2f} at 90 days, and keeps {sx['saving_kept_google_time_of_day_pooled'] * 100:.0f}% of the saving. Through the "
+        "virtual-battery theorem, cumsum(1 − d) is the backlog of deferred work, so the meter alone reveals the operator's parameters: on flat load, 30 days give "
+        f"φ within {sx['phi_mae_flat_30d']:.3f} and the battery energy s·φ within {abs(sx['energy_median_ratio_flat_30d'] - 1) * 100:.0f}% (median). "
+        "With real load the values are biased, but flexible shares remain perfectly ordered.")
+    P.figure(FIG / "sidechannel.png", "Left: detection AUC of carbon-aware scheduling from the meter and the public signal (solid: real Google load; dashed: flat). Right: saving kept by schedulers that try to hide.")
+
+    cs = pd.read_csv(RES / "cooling_summary.csv", index_col=0)["value"]
+    cy = pd.read_csv(RES / "cooling_years_summary.csv", index_col=0)["value"]
+    cz = pd.read_csv(RES / "cooling_per_zone.csv")
+    cz = cz[(cz.phi == 0.5) & (cz["head"] == 0.2)]
+    top = cz[cz.plant == "legacy"].sort_values("penalty_pct_of_claim", ascending=False).iloc[0]
+    flatmax = cz[cz.zone.isin(["HK", "ID"])].groupby("plant").true_cooling_aware_g.max()
+    P.h("5.10 The cooling penalty", 2)
+    P.p(
+        "Grid draw is IT power times PUE, and PUE rises with outdoor temperature, so the carbon cost of an IT kWh is c·PUE. The true saving of a draw d is "
+        "−cov(c·PUE, d); an operator who multiplies a carbon-only saving by the annual PUE claims −mean(PUE)·cov(c, d). We take the "
+        f"{cs['zones']:.0f} zones that host cloud regions, hourly 2022 weather at one hub each (Open-Meteo/ERA5), and two first-principles cooling plants: "
+        f"hyperscale (economiser, wet-bulb heat rejection, median PUE {cs['hyperscale_pue_mean_median']:.2f}) and legacy (air-cooled, median {cs['legacy_pue_mean_median']:.2f}). "
+        f"In {cs['legacy_share_zones_clean_hours_hot'] * 100:.0f}% of zones the daily carbon and PUE profiles are anti-correlated: clean hours are hot. "
+        f"With half the load flexible and +20% headroom, the claim exceeds the true saving by {cs['hyperscale_phi0.5_h0.2_penalty_pct_pooled']:.1f}% (hyperscale) and "
+        f"{cs['legacy_phi0.5_h0.2_penalty_pct_pooled']:.1f}% (legacy) pooled, by over 10% in {cs['legacy_phi0.5_h0.2_zones_penalty_over_10pct']:.0f} zones for legacy plants, "
+        f"and by {top.penalty_pct_of_claim:.0f}% in {top.hub}. A closed form, penalty/claim ≈ −ρ·(c̄/σ_c)·(σ_PUE/P̄) on within-day hourly variation, "
+        f"predicts it (R² {cs['legacy_phi0.5_h0.2_law_r2']:.2f} legacy, {cs['hyperscale_phi0.5_h0.2_law_r2']:.2f} hyperscale). The factor c̄/σ_c, the inverse "
+        "coefficient of variation of carbon, makes dirty grids with small relative swings the most exposed. Scheduling on c·PUE recovers "
+        f"{cs['hyperscale_phi0.5_h0.2_recovered_pct_pooled']:.1f}% and {cs['legacy_phi0.5_h0.2_recovered_pct_pooled']:.1f}% more true saving pooled, and on the flat "
+        f"grids of Hong Kong and Jakarta, where carbon-only scheduling saves nothing, weather alone saves up to {flatmax.get('legacy', 0):.1f} g/kWh. "
+        "Cooling-aware workload planning at single sites with on-site solar is established (Liu et al., SIGMETRICS 2012); the grid-carbon accounting gap and its closed form are new here. "
+        f"The result holds for 2020-2022, and the law evaluated on the previous year predicts the next year's penalty (legacy, +20%: R² {cy['legacy_h0.2_oos_law_2021_to_2022_r2']:.2f} for 2021 to 2022), "
+        "so sites can be screened from public data before any scheduling.")
+    P.figure(FIG / "cooling.png", "Left: cooling penalty from the LP versus the closed-form law (half flexible, +20% headroom). Right: claimed versus true saving of a carbon-only scheduler per zone.")
+
+    th = pd.read_csv(RES / "thermal_summary.csv", index_col=0)["value"]
+    P.h("5.11 The third battery: chilled-water storage", 2)
+    P.p(
+        "A chilled-water tank lets the plant make cold before it is needed. Cold costs m(t) = 1/COP units of electricity (zero under free cooling), so its "
+        "carbon cost is c·m, and a cyclic LP per zone (tank of 1-12 h of heat load, chiller 1.5× peak, 1%/day loss) dispatches it on that product. "
+        f"A 4 h tank cuts facility emissions by a median {th['hyperscale_cap4_saving_pct_median']:.2f}% (hyperscale) and {th['legacy_cap4_saving_pct_median']:.2f}% (legacy). "
+        f"Dispatching on the weather alone keeps {th['hyperscale_share_weather_only_pooled'] * 100:.0f}% and {th['legacy_share_weather_only_pooled'] * 100:.0f}% of that; "
+        f"dispatching on grid carbon alone, as chilled-water storage is marketed for data centres, keeps {th['hyperscale_share_carbon_only_pooled'] * 100:.0f}% and "
+        f"{th['legacy_share_carbon_only_pooled'] * 100:.0f}%, and raises emissions in {th['hyperscale_zones_carbon_only_raises']:.0f} and {th['legacy_zones_carbon_only_raises']:.0f} "
+        f"of {th['zones']:.0f} zones, because clean midday hours are when chillers are least efficient. One kWh of tank saves as much as "
+        f"{th['hyperscale_cap4_battery_kwh_per_tes_kwh_median']:.2f} (hyperscale) or {th['legacy_cap4_battery_kwh_per_tes_kwh_median']:.2f} (legacy) kWh of 4 h Li-ion battery, "
+        f"and on top of cooling-aware IT shifting it adds its full saving (pooled ratio {th['legacy_stack_ratio_pooled']:.2f}), worth "
+        f"{th['hyperscale_tes_over_it_pooled'] * 100:.0f}-{th['legacy_tes_over_it_pooled'] * 100:.0f}% of the IT-shifting saving. The three batteries rank: flexible IT load "
+        "(lossless, free), then cooling storage dispatched on c × COP, then electric batteries.")
+    P.figure(FIG / "thermal.png", "Left: facility emissions cut by a chilled-water tank versus its size (median and interquartile range over 47 zones). Right: share of the tank's saving kept when it is dispatched on grid carbon only or on weather only.")
+
     P.h("6 The Redundancy Dividend")
     P.p(
         "Tier-rated facilities already own idle electrical capacity. Flex [3] showed that this reserve can host software-redundant work and be reclaimed "
@@ -674,6 +797,28 @@ def build(n: dict) -> None:
         f"(best zone {n['bat4h_max']:.1f}%), less than half-flexible load with 50% headroom ({get(24, 1.5, 'reduction_pct'):.1f}%). "
         "On a marginal ledger the picture changes (Sec. 5.6).")
     P.figure(FIG / "facility_battery.png", "Facility CO2 reduction from carbon-optimal battery dispatch versus battery size.", width=4.4)
+    ex = pd.read_csv(RES / "exchange_summary.csv", index_col=0)["value"]
+    exy = pd.read_csv(RES / "exchange_years_summary.csv", index_col=0)["value"]
+    P.h("7.1 The storage exchange rate", 2)
+    P.p(
+        "Sec. 4.5 showed that capped flexible load is a lossless battery. How many kWh of a *real* battery is it worth? For every zone we compare the capped "
+        "shifting saving with a grid-scale 4 h battery at 90% round trip. Its dispatch LP is linear in capacity while power stays below load, so one solve per "
+        "zone gives the saving per kWh, b, and the exchange rate is X = S_flex / b kWh per kW of mean load. b obeys a daily **spread law**: charge in each day's "
+        "four cleanest hours, discharge in the four dirtiest, and skip days whose spread does not cover the losses, "
+        f"b = (1/24)·mean_days max(0, √η·H₄ − L₄/√η) (R² {ex['spread_law_r2_4h']:.3f} against the LP, median ratio {ex['spread_law_median_ratio_4h']:.3f}). "
+        f"For φ = 0.5 and 24 h slack the median facility is worth {ex['X_median_phi0.5_cap1.05']:.1f}, {ex['X_median_phi0.5_cap1.2']:.1f} and "
+        f"{ex['X_median_phi0.5_cap1.5']:.1f} kWh of battery per kW at +5%, +20% and +50% headroom, and {ex['X_median_phi0.5_capinf']:.0f} kWh uncapped. "
+        "By the homogeneity theorem the rate per virtual kWh, X/(24φ), depends only on h/φ and a zone constant κ; uncapped, one virtual kWh is worth "
+        f"κ = {ex['X_over_virtual_median_phi0.5_capinf']:.2f} real kWh (median). Building that battery (LFP, 54-69 kg CO2eq/kWh) would embody a median "
+        f"{ex['embodied_ratio_battery_over_headroom_median_phi0.5_cap1.2']:.0f}× (at least {ex['embodied_ratio_battery_over_headroom_min_phi0.5_cap1.2']:.0f}×) "
+        "the carbon of the grid-only headroom that unlocks the same saving at +20%. Chaining the two closed forms predicts the LP exchange rate with log-R² "
+        f"{ex['closed_form_X_r2_log']:.2f} and no optimiser. In 7 of 123 zones the daily spread never covers the losses, so a battery saves nothing while "
+        "flexible load still does. Batteries also earn grid-service revenue that this carbon-only comparison ignores. "
+        f"The rate is stable across years: at +20% headroom the median is {exy['X_median_2020_cap1.2']:.1f}, {exy['X_median_2021_cap1.2']:.1f} and "
+        f"{exy['X_median_2022_cap1.2']:.1f} kWh/kW for 2020-2022, zone rankings correlate at Spearman {exy['X_spearman_2020_2022_cap1.2']:.2f}-"
+        f"{exy['X_spearman_2021_2022_cap1.2']:.2f}, and last year's rate predicts this year's within 25% for "
+        f"{exy['X_prev_year_within_25pct_2021_cap1.2'] * 100:.0f}-{exy['X_prev_year_within_25pct_2022_cap1.2'] * 100:.0f}% of zones.")
+    P.figure(FIG / "exchange_rate.png", "Storage exchange rate. Left: kWh of 4 h, 90%-efficient battery that saves as much carbon as the capped flexible load, per kW of mean load. Right: the closed-form daily spread law against the battery LP.")
 
     # ------------------------------------------------------------------ 8 LLM
     P.h("8 Measured LLM Inference Energy versus Batch Size")

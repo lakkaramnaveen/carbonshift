@@ -215,10 +215,15 @@ const runFacility = debounce(async () => {
     set("f-k-ret", r.retained_of_ideal_pct === null ? "–" : `${fmt(r.retained_of_ideal_pct, 0)}%`);
     set("f-k-ret-s", `with +${head}% headroom`);
     set("f-k-peak", `${fmt(r.uncapped_peak_draw)}×`);
+    set("f-k-vb", `${fmt(r.law.virtual_battery_hours, 0)} h`);
+    set("f-k-vb-s", r.law.effective_horizon_hours ? `lossless; plans ${hours(r.law.effective_horizon_hours)} ahead; law: −${fmt(r.law.reduction_pct)}%` : "lossless; no headroom to recharge");
+    set("f-k-bx", r.law.battery_saves_nothing ? "none" : r.law.battery_equivalent_kwh == null ? "–" : `${fmt(r.law.battery_equivalent_kwh)} kWh`);
+    set("f-k-bx-s", r.law.battery_saves_nothing ? "spread never covers a battery's losses here" : "per kW of load: 4 h Li-ion, 90% round trip");
     const cx = r.curve.map((c) => c.headroom_pct);
     lineChart($("f-curve"), {
       xs: cx, xTicks: [0, 50, 100, 150, 200, 300], xFmt: (v) => `+${v}%`, height: 200, label: "reduction vs headroom",
-      series: [{ ys: r.curve.map((c) => c.reduction_pct), cls: "s1", name: "reduction", dots: "f1", fmt: (v) => `${fmt(v)}%` }],
+      series: [{ ys: r.curve.map((c) => c.reduction_pct), cls: "s1", name: "optimiser", dots: "f1", fmt: (v) => `${fmt(v)}%` },
+               { ys: r.curve.map((c) => c.law_reduction_pct), cls: "s2", name: "closed-form law", fmt: (v) => `${fmt(v)}%` }],
       refY: { value: r.ideal_reduction_pct }, yFmt: (v) => `${fmt(v, 0)}%`,
       marker: { x: head, y: r.reduction_pct, cls: "f2" },
     });
@@ -420,6 +425,69 @@ const runSignal = debounce(async () => {
   } catch (e) { if (e.name !== "AbortError") { $("g-err").hidden = false; set("g-err", `Error: ${e.message}`); } }
 }, 150);
 
+// ------------------------------------------------------------------ cooling penalty (F26)
+let COOLING = null;
+async function loadCooling() {
+  try { COOLING = await api("km", "/api/cooling"); }
+  catch (e) { $("k-err").hidden = false; set("k-err", `Cooling results unavailable: ${e.message}`); return; }
+  const sel = $("k-zone");
+  for (const z of COOLING.zones) {
+    const o = document.createElement("option");
+    o.value = z.code; o.textContent = `${z.name} (${z.code}) · ${z.hub}`;
+    sel.appendChild(o);
+  }
+  if (COOLING.zones.some((z) => z.code === "SG")) sel.value = "SG";
+  runCooling();
+}
+
+const runCooling = debounce(async () => {
+  if (!COOLING) return;
+  const flex = +$("k-flex").value, head = +$("k-head").value;
+  const tank = COOLING.tank_hours[+$("k-tank").value];
+  set("k-flex-o", `${flex}%`); set("k-head-o", `+${head}%`); set("k-tank-o", tank ? `${tank} h` : "none");
+  busy("p-cooling", true);
+  try {
+    const r = await api("k", "/api/cooling", { zone: $("k-zone").value, plant: $("k-plant").value, flexible_pct: flex, headroom_pct: head, tank_hours: tank });
+    $("k-err").hidden = true;
+    set("k-k-claim", fmt(r.claimed_g, 1));
+    set("k-k-claim-s", `g per IT kWh · carbon saving × PUE ${fmt(r.pue_mean, 2)}`);
+    set("k-k-true", fmt(r.true_carbon_only_g, 1));
+    set("k-k-true-s", "g per IT kWh, counting hourly cooling");
+    set("k-k-pen", r.penalty_pct === null ? "–" : `${fmt(r.penalty_pct, 0)}%`);
+    $("k-k-pen").classList.toggle("bad", (r.penalty_pct ?? 0) >= 10);
+    set("k-k-pen-s", r.law_penalty_pct === null ? "of the claim" : `of the claim · law: ${fmt(r.law_penalty_pct, 0)}%`);
+    set("k-k-aware", fmt(r.true_cooling_aware_g, 1));
+    set("k-k-aware-s", r.cooling_aware_gain_pct === null ? "g per IT kWh, from weather alone"
+      : `g per IT kWh · ${r.cooling_aware_gain_pct >= 0 ? "+" : ""}${fmt(r.cooling_aware_gain_pct, 0)}% vs carbon-only`);
+    const all = [...r.day.ci_pct, ...r.day.pue_pct];
+    const lo = Math.floor(Math.min(...all) / 10) * 10, hi = Math.ceil(Math.max(...all) / 10) * 10;
+    lineChart($("k-day"), {
+      xs: r.day.hour, xTicks: [0, 6, 12, 18, 23], xFmt: (h) => `${h}:00`, yMin: lo, yMax: Math.max(hi, lo + 10),
+      label: "average day of grid carbon and PUE, each as a percent of its mean",
+      series: [{ ys: r.day.ci_pct, cls: "s1", name: "carbon", fmt: (v) => `${fmt(v, 0)}%` },
+               { ys: r.day.pue_pct, cls: "s2", name: "PUE", fmt: (v) => `${fmt(v, 1)}%` }],
+      refY: { value: 100 },
+    });
+    $("k-tank-card").hidden = !r.tank;
+    if (r.tank) {
+      set("k-t-best", fmt(r.tank.saving_g, 2));
+      set("k-t-best-s", `g per IT kWh · ${fmt(r.tank.saving_pct, 2)}% of facility emissions`);
+      set("k-t-carb", fmt(r.tank.carbon_only_saving_g, 2));
+      $("k-t-carb").classList.toggle("bad", r.tank.carbon_only_saving_g < 0);
+      set("k-t-carb-s", r.tank.carbon_only_saving_g < 0 ? "g per IT kWh: raises emissions" : "g per IT kWh saved");
+      set("k-t-batt", r.tank.battery_kwh_per_tank_kwh === null ? "n/a" : fmt(r.tank.battery_kwh_per_tank_kwh, 2));
+      set("k-t-batt-s", r.tank.battery_kwh_per_tank_kwh === null
+        ? "this grid's daily swing does not cover battery losses; the tank still saves"
+        : r.tank.battery_saves_little ? "kWh of 4 h battery per kWh of tank: batteries gain little on this grid"
+        : "kWh of 4 h battery per kWh of tank");
+    }
+    set("k-note", r.flat_signal
+      ? `This grid's carbon signal is flat, so a carbon-only scheduler saves nothing. Moving work to cool hours still saves carbon, because each IT kWh then needs less cooling.`
+      : `PUE ranges ${fmt(r.pue_min, 2)}–${fmt(r.pue_max, 2)} over the year at ${r.hub}. The closed-form law is −ρ·(mean carbon / its hourly spread)·(PUE spread / mean PUE): a small relative carbon swing makes a grid most exposed.`);
+  } catch (e) { if (e.name !== "AbortError") { $("k-err").hidden = false; set("k-err", `Error: ${e.message}`); } }
+  finally { busy("p-cooling", false); }
+}, 150);
+
 // ------------------------------------------------------------------ tabs, theme, boot
 function setupTabs() {
   const tabs = [...document.querySelectorAll("nav.tabs button")];
@@ -485,8 +553,10 @@ async function boot() {
   for (const id of ["s-lat", "s-sort"]) $(id).addEventListener("change", renderSiting);
   $("g-w").addEventListener("input", runSignal);
   $("g-ba").addEventListener("change", runSignal);
+  for (const id of ["k-flex", "k-head", "k-tank"]) $(id).addEventListener("input", runCooling);
+  for (const id of ["k-zone", "k-plant"]) $(id).addEventListener("change", runCooling);
   runTemporal(); runFacility(); runBattery(); runCapacity();
-  loadLLM(); loadSiting(); loadSignal();
+  loadLLM(); loadSiting(); loadSignal(); loadCooling();
 }
 
 document.addEventListener("DOMContentLoaded", boot);
