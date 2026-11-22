@@ -429,6 +429,41 @@ So the average rate is a marginal charge plus an *hourly residual* r_t = c_t −
 
 *Why it matters.* The field's debate is framed as "which signal is right". The identity reframes it: location-based scheduling is not a noisy estimate of a reduction but, on most US grids, a reallocation of who is billed for the same emissions, and it penalises the schedule that does reduce them. *Prior work:* Gorka, Rhodes & Roald (ElectricityEmissions.jl, 2024) show on test systems that average-signal shifting can lower a consumer's allocation while raising system emissions; WattTime's impact accounting and the GHG Protocol's 2025-26 consultation propose marginal charges. New here: the incidence measured on 48 real grids, the hourly-residual decomposition, and a budget-balanced two-part rule. *Limitations:* season × hour MEFs (2022, US only); first order for small loads; imports ignored; the two-part rule needs an agreed marginal signal, and its residual allocation is a policy choice. Outputs: `results/incidence_*.csv`, `figures/incidence.png`.
 
+## 5h. Not every knob is a battery: carbon-aware speed scaling is second order
+
+Everything above shifts *when* work runs. A second family of carbon-aware systems changes *how fast* it runs: DVFS and GPU power limits slow down in dirty hours and speed up in clean ones. Are the two knobs comparable?
+
+**The law.** Fix each day's work and let the server run at speed s_t with dynamic power P(s) = s^α (α ≈ 2-3 for frequency-voltage scaling). The optimal speed is s_t ∝ c_t^(−1/(α−1)) (the KKT condition; cf. speed scaling with time-varying costs, Yao, Demers & Shenker 1995; Antoniadis et al. 2017). The uncapped saving against constant speed has a closed form:
+
+    saving = 1 − M_p(c) / M_1(c),   p = −1/(α−1),
+
+the gap between the day's arithmetic mean carbon intensity and its power mean of order p. As α → 1, M_p → min(c), which is deferral. For small variation the saving is
+
+    saving ≈ (χ/2) · CV²,   χ = P′² / (P · P″)   (= α/(α−1) for a power law),
+
+quadratic in the carbon variation. This is the mathematics of Harberger's deadweight triangle: leaving the efficient constant speed costs energy quadratically, so the carbon gain is second order. Deferral on an energy-proportional server is the linear case (P″ = 0, χ = ∞): its saving is first order in the swing (F15, F21) and is limited by the power cap instead.
+
+**Finding 24 (F29): carbon-aware speed scaling is worth an order of magnitude less than deferring the same work.** 123 zones × 2020-2022, average signal, 24 h windows, fully flexible work (φ = 1):
+
+| Knob | Uncapped | +20% power cap | +50% power cap | Saving ∝ CV^k |
+|---|---:|---:|---:|---:|
+| Deferral, energy-proportional server | 14.6% | 2.5% | 4.9% | k = 1.06 (+20%) |
+| Speed scaling, α = 1.5 | 1.58% | 1.08% | 1.46% | k = 1.97 |
+| Speed scaling, α = 2 | 1.05% | 0.84% | 1.03% | k = 1.99 |
+| Speed scaling, α = 3 | 0.79% | 0.70% | 0.78% | k = 1.99 |
+
+Medians over 369 zone-years. Even at the same *speed* headroom (+20% speed, i.e. +73% power for α = 3), speed scaling saves a median 0.78%, about a third of deferral at +20% power. The best zone-year (Bornholm, 2020) reaches 16.8% for α = 3 but 54% for deferral; 21% of zone-years exceed 2% for α = 3, against 97% for deferral. Only on the most variable grids (within-day CV above about 0.35) does uncapped speed scaling catch up with deferral at a +20% cap (figure). Three zone-years per year have a constant signal (HK, ID, US-NW-SCL) and save nothing with either knob.
+
+![Speed scaling vs deferral](../figures/smoothknob.png)
+
+Headroom is almost worthless to a smooth knob (0.79% uncapped vs 0.70% at +20%): its optimum rarely reaches the cap, so the shadow price of capacity (F7) is near zero for it.
+
+**Checks.** (1) The bisection solver matches a generic constrained solver (SLSQP) to 1e-12 pp on 200 random zone-days and in the tests. (2) The uncapped power-mean closed form equals the optimiser exactly (max difference 0.000 pp over 369 zone-years). (3) The quadratic law has R² 0.93 / 0.96 / 0.98 for α = 1.5 / 2 / 3 (median ratio 0.99). (4) α → 1 under a speed cap reproduces water-filling deferral (tested). (5) Daily-block deferral underestimates the sliding-window LP at tight caps (F22; e.g. DE at +20%: 3.4% vs 6.7%), so the gap between the two knobs is if anything larger.
+
+**A negative result inside the finding.** We expected the law to explain F14 (carbon-aware LLM batching adds only 1.6-4.8% over static batching). It does not: across zones, F14's gain scales as CV^0.9-1.2, first order. F14's knob is a convex hull of discrete batch sizes, which is piecewise *linear*, so it behaves like deferral between vertices, and its small gain comes from the narrow latency range, not from curvature. The dividing line is the curvature of energy per unit of work at the operating point, not the device.
+
+*Why it matters.* Carbon-aware frequency scaling and GPU power capping are often presented as carbon-aware computing. The law says that on today's grids their carbon-aware part is worth a median under 1% and scales with the square of the grid's variability; most of what they save is time-invariant energy efficiency (running nearer the energy-optimal point; cf. Hanafy et al., HotCarbon 2023), which needs no carbon signal. The carbon knob is *when*, not *how fast*: set a smooth knob for energy, and let the carbon signal drive deferral or on/off decisions. *Limitations:* dynamic power only (static power p0 scales the saving by 1/(1+p0), tested); fixed work per day; no minimum speed; average signal; α is assumed, not measured here. Outputs: `results/smoothknob_*.csv`, `figures/smoothknob.png`, `src/carbonshift/smoothknob.py`, `tests/test_smoothknob.py`.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
