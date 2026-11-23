@@ -40,6 +40,9 @@ REFS = [
     "I. Riepin, T. Brown, V. M. Zavala. Spatio-temporal Load Shifting for Truly Clean Computing. Advances in Applied Energy 17, 100202, 2025 (arXiv:2405.00036).",
     "Q. Xu, W. Ricks, A. Manocha, N. Patankar, J. D. Jenkins. System-level Impacts of Voluntary Carbon-free Electricity Procurement Strategies. Joule 8(2), 2024.",
     "GHG Protocol. Scope 2 Market-Based Method Update: status of the 2025-26 consultation on hourly matching and deliverability, October 2026.",
+    "G. Perino. New EU ETS Phase 4 Rules Temporarily Puncture Waterbed. Nature Climate Change 8(4), 262-264, 2018.",
+    "K. E. Rosendahl. EU ETS and the Waterbed Effect. Nature Climate Change 9, 734-735, 2019.",
+    "European Commission. Publication of the Total Number of Allowances in Circulation in 2025 for the Purposes of the Market Stability Reserve. Communication C/2026/2957, 2026.",
 ]
 
 
@@ -49,7 +52,9 @@ def load() -> dict:
             "c": pd.read_csv(RES / "incidence_caiso.csv"),
             "hs": pd.read_csv(RES / "hedge_summary.csv", index_col=0)["value"],
             "hf": pd.read_csv(RES / "hedge_frontier_per_ba.csv"),
-            "hm": pd.read_csv(RES / "hourly_matching_summary.csv", index_col=0)["value"]}
+            "hm": pd.read_csv(RES / "hourly_matching_summary.csv", index_col=0)["value"],
+            "wb": pd.read_csv(RES / "waterbed_summary.csv"),
+            "wl": pd.read_csv(RES / "waterbed_fate_by_lag.csv")}
 
 
 def figures(n) -> list[Path]:
@@ -95,6 +100,15 @@ def build() -> None:
     S = styles()
     p, h, b, fig, table = S["p"], S["h"], S["b"], S["fig"], S["table"]
     pc = lambda v, d=0: f"{v * 100:.{d}f}%"  # noqa: E731
+    wb, wlag = n["wb"], n["wl"]
+    wb_cloud = wb[wb.weight == "cloud"]
+    wb_cap = 1 - float(wb_cloud[wb_cloud.regime == "no cap"].saving_share.iloc[0])
+    wb_eu = float(wb_cloud[wb_cloud.regime == "EU ETS (MSR)"].saving_share.iloc[0])
+    wb_us = float(wb[wb.weight == "us_marginal_F17"].saving_share.iloc[0])
+    wd = wlag[wlag.rules == "deal_2026 (700 Mt)"]
+    wl_before = float(wd[wd.lag == -1].real_upper_median.iloc[0])
+    wl_after = float(wd[wd.lag == 0].real_upper_median.iloc[0])
+    wl_n = int(wd[wd.lag == -1].n.iloc[0])
     nb = int(s["bas"])
     ok = hf.groupby("ba").filter(lambda d: d.avg_saving_g.max() > 0.5 and d.marg_saving_g.max() > 0.5)
     best = ok.groupby("ba")[["avg_saving_g", "marg_saving_g"]].max().sum()
@@ -209,14 +223,29 @@ def build() -> None:
           "portfolio is scored on the wrong signal. The two-part rule extends directly: credit the portfolio at m<sub>t</sub>, a<sub>i</sub> = Σ m<sub>t</sub>"
           "(L<sub>it</sub> − P<sub>it</sub>) + ρ Σ L<sub>it</sub>."),
 
-        h("7 Related Work"),
+        h("7 Under a Cap, Moved Again"),
+        p("Every number above is a change in power-plant emissions. But much of the cloud sits in grids under an emissions cap, and under a binding cap a "
+          "tonne one consumer avoids is a tonne an installation elsewhere may emit later: it is moved through the allowance bank, not cut (the waterbed "
+          f"[15, 16]). Mapping the 123 zones of [1] to their cap regimes, {pc(wb_cap)} of the cloud-region-weighted temporal-shifting saving "
+          f"({pc(wb_eu)} in the EU ETS alone) and {pc(wb_us)} of the U.S. marginal saving of §3 sit under a cap. The EU's Market Stability Reserve punctures "
+          "the waterbed: an avoided tonne raises the surplus TNAC by one, and while the TNAC is between 833 and 1,096 Mt the reserve takes in exactly the "
+          "excess over 833 Mt, so the tonne is absorbed and later invalidated. The published 2025 TNAC is 1,023 Mt [17]. We simulate the bank mechanically "
+          f"for {wl_n} net-supply paths and three rule sets (the 2023 law, the October 2026 deal raising the invalidation threshold to 700 Mt, the "
+          "Commission's April 2026 proposal to stop invalidation), with two independent derivations that agree in every case. The real cut is a step "
+          f"function of time: a median {wl_before:.2f} t per tonne for abatement the year before the TNAC first reaches 833 Mt (transients of 0.6-1.7, from "
+          f"overlapping intake years), and {wl_after:.2f} from that year on, when the reserve stops absorbing. That crossing comes within about a year of the "
+          "market turning short, which analysts expect around 2026-27. The 700 Mt deal changes nothing at the margin as long as the reserve holds more than "
+          "700 Mt. From then on a European carbon-aware scheduler cuts the allowance price, not emissions. By symmetry, new demand there adds none, so the "
+          "transfer of §3 becomes a transfer to other capped sectors."),
+
+        h("8 Related Work"),
         p("Gorka, Rhodes and Roald [3] show on test networks that shifting on average intensity can lower a consumer's allocation while raising system "
           "emissions, and examine non-shifting consumers. Sukprasert et al. [2] compare signals across 65 regions. WattTime's impact accounting [7] and the "
           "GHG Protocol's consultation [6] propose marginal charges. Riepin, Brown and Zavala [12] show that load shifting cuts the cost of 24/7 "
           "procurement and argue that grid signals then matter little; Xu et al. [13] model its system-level impacts through new build. We add the exact identity, measurement on real grids under a facility cap, and a "
           "budget-balanced rule that aligns incentives."),
 
-        h("8 Threats to Validity"),
+        h("9 Threats to Validity"),
         p("Marginal factors are season × hour regressions on one year and exclude imports; held-out scoring guards against noise, not model error. The "
           "identity is first order in the consumer's size (exact at finite size in §5). Flexible work is fluid and forecasts are perfect. The two-part rule "
           "needs an agreed marginal signal, §6 uses clear-sky solar portfolios (r = 0.95 with real CAISO solar) and the grid average as residual mix, and how to allocate the residual (by energy, by peak, by customer) is a policy choice we do not settle."),

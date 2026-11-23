@@ -50,7 +50,38 @@ arithmetic and a power mean of the carbon signal, second order in its variation:
 % (2) virtual-battery equivalence (Thm 3) and its corollaries (UPS, horizon, signal blending);
 % (3) storage exchange rate (F23); (4) the power-cap as an anti-herding device (F24);
 % (5) the boundary: power-mean law for convex knobs (Thm 4, F29).
-\textbf{TODO.} Port from the workshop draft and extend to 2 pages.
+\textbf{Shifting is capped in practice.} Carbon-aware schedulers defer flexible work to hours
+when the grid is cleaner~\cite{radovanovic2021carbonaware,wiesner2021lets,sukprasert2024on}.
+Upper-bound studies assume the facility can absorb any amount of shifted
+work~\cite{sukprasert2024on}. Achieving those bounds needs the median grid zone to draw
+13$\times$ its mean power in a single hour (24\,h slack; 85$\times$ with a week). Real facilities
+cannot: transformers, switchgear and UPS modules are sized for a peak. Google's released power
+traces~\cite{sakalkar2019data} put the median power domain at 70\% of its rating, about +42\%
+headroom, which keeps a median 54\% (44--75\%) of the ideal saving. With the cap in the model,
+the remaining saving, the value of extra capacity and the right planning horizon are usually
+obtained by solving a year-long linear program for every grid and parameter.
+
+\textbf{This paper replaces those solves with a theory.} Its core is an exact equivalence:
+\emph{a power-capped flexible workload is a lossless battery}. Power engineers already treat
+aggregations of flexible loads as virtual storage~\cite{callaway2011achieving,hao2015aggregate};
+we make the mapping exact for deferrable compute under a facility cap, solve the resulting problem
+in closed form (water-filling~\cite{cover2006elements}), and test every law against the optimiser
+on Electricity Maps traces for 123 grid zones over three years~\cite{maps2022hourly}.
+
+\textbf{Contributions.}
+\begin{itemize}
+\item The virtual-battery theorem: energy $s\varphi$, discharge power $\varphi$, charge power $h$,
+  100\% efficiency (Theorem~\ref{thm:battery}, \S\ref{sec:battery}).
+\item Closed forms for the saving, the share kept, the value of a kilowatt and the peak draw, from
+  water-filling and an exact homogeneity theorem (\S\ref{sec:waterfill}).
+\item Three earlier empirical puzzles explained, one confirmed as a prediction: why a UPS barely
+  helps, why tight caps plan beyond the slack, and why signals blend for load but not for storage.
+\item A storage exchange rate: with +20\% headroom a half-flexible facility is worth a median
+  4.3\,kWh of 4\,h Li-ion storage per kW of load, at 1/31 of the embodied carbon.
+\item The boundary of the theory: convex knobs (DVFS, GPU power limits) are not batteries; their
+  saving is a power-mean gap, second order in the signal's variation
+  (Theorem~\ref{thm:powermean}; median 0.79\% against 14.6\% for deferral).
+\end{itemize}
 
 \section{Model}
 \label{sec:model}
@@ -67,6 +98,7 @@ and the problem is $\min\sum_t c_t\,(1-\varphi+y_t)$ subject to \eqref{eq:lp}.
 The saving $S(\varphi,h)$ is the drop against $y_t=\varphi$.
 
 \section{Water-Filling and Homogeneity}
+\label{sec:waterfill}
 \begin{theorem}[Homogeneity]\label{thm:homog}
 $S(\lambda\varphi,\lambda h)=\lambda S(\varphi,h)$ for all $\lambda>0$. Hence the share of the
 ideal saving kept under a cap, $S(\varphi,h)/S(\varphi,\infty)$, is a function of $h/\varphi$ alone.
@@ -81,6 +113,7 @@ The uncapped saving is $\varphi A$ and the peak draw is $1+24\varphi$.
 % shadow price R^2 0.981 (results/waterfill_*.csv).
 
 \section{Flexible Load under a Cap Is a Battery}
+\label{sec:battery}
 \begin{theorem}[Virtual battery]\label{thm:battery}
 Let $B_t=A_t-Y_t$ (the backlog). Constraints \eqref{eq:lp} are equivalent to
 \[ 0\le B_t\le s\varphi,\qquad -h\le B_t-B_{t-1}\le\varphi, \]
@@ -108,12 +141,33 @@ to $1-\min_t c_t/\Mp_1(c)$, the deferral optimum.
 % savings scale as CV^1.99 vs CV^1.06.
 
 \section{Related Work}
-% Sukprasert et al. EuroSys'24; Radovanovic et al. (CICS); Wiesner et al. Middleware'21;
-% virtual storage of flexible loads (Callaway & Hiskens 2011; Hao et al. 2015); valley filling
-% (Gan, Topcu & Low 2013); speed scaling (Yao, Demers & Shenker FOCS'95; Antoniadis et al.
-% TCS 2017); carbon-aware DVFS (Hanafy et al. HotCarbon'23). TODO: read full texts.
+\textbf{Carbon-aware shifting.} Temporal and spatial shifting were bounded on these traces
+by~\cite{sukprasert2024on}; production systems shape load against day-ahead
+forecasts~\cite{radovanovic2021carbonaware}; deferral and elasticity were studied
+in~\cite{wiesner2021lets,hanafy2024carbonscaler,souza2023ecovisor}, and the choice of average vs
+marginal signal in~\cite{sukprasert2024onb,gorka2024electricityemissionsjl}. We add the facility
+cap, and with it a closed form.
+\textbf{Virtual storage.} Thermostatic and other flexible loads are modelled as virtual batteries
+in power systems~\cite{callaway2011achieving,hao2015aggregate}; storage arbitrage can raise
+system emissions~\cite{hittinger2015bulk}. Our mapping is exact for deferrable work with a
+deadline, and its energy, power and efficiency follow from $(s,\varphi,h)$.
+\textbf{Speed scaling.} Energy-optimal speed scaling~\cite{yao1995a} and the carbon/energy
+tension of DVFS~\cite{hanafy2023the} motivate Theorem~\ref{thm:powermean}; its second-order form is
+a Harberger triangle~\cite{harberger1964the}.
+\textbf{Caps on the grid side.} Where the grid itself is under an emissions cap, the avoided
+tonnes are moved through the allowance bank unless a supply-adjustment rule absorbs
+them~\cite{perino2018new,rosendahl2019eu,perino2019overlapping}; we return to this in
+\S\ref{sec:threats}.
+% TODO: read the full texts of the virtual-storage and speed-scaling papers.
 
 \section{Threats to Validity}
+\label{sec:threats}
+\textbf{The grid may be capped.} Every saving in this paper is a change in power-plant
+emissions. About 41\% of the cloud-region-weighted shifting saving sits in grids under an
+emissions cap (EU ETS, UK ETS, WCI, K-ETS). There, an avoided tonne is real only while a supply
+adjustment absorbs it. In the EU this happens while the surplus of allowances (TNAC) is in the
+833--1{,}096\,Mt band; it stops within about a year of the market turning short. The saving is
+then a fall in the allowance price, not in emissions (the waterbed; companion analysis).
 % Average vs marginal signals; fluid work; perfect forecasts (F11 bounds the error);
 % assumed alpha for speed scaling; constant gas margin in F24.
 
@@ -170,5 +224,5 @@ $\alpha\to1^+$, $p\to-\infty$ and $\Mp_p\to\min_t c_t$.
 \end{proof}
 
 \bibliographystyle{ACM-Reference-Format}
-% \bibliography{refs}   % TODO: refs.bib from the REFS lists in scripts/build_workshop_*.py
+\bibliography{refs}   % generated by scripts/build_bib.py
 \end{document}
