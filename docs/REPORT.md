@@ -524,6 +524,30 @@ Every saving in this report is a change in power-plant emissions. But much of th
 
 *Why it matters.* The field's question has been "how much does shifting cut at the power plant?" Under a cap, the binding question is "does the regulator's supply rule absorb the allowance it frees?" In the EU today it does: the published 2025 TNAC of 1,023 Mt is in the absorbing band, so a tonne avoided in 2025 is fully real. Within a year or two it will not be. From then on a European carbon-aware scheduler lowers the allowance price, and other ETS sectors emit what it saved. This is F28's "moved, not cut" again, now through the allowance bank instead of the grid's average. Read the other way, new demand under a short cap adds no ETS emissions, only a higher price. That matters for the debate on AI data-centre growth in Europe. *Limits:* mechanical bank with exogenous emissions (no price feedback or intertemporal arbitrage, which the economics literature shows can change the size of the puncture); the July 2026 ETS review proposal makes the MSR thresholds dynamic and is not modelled; non-EU regimes are classified as brackets (for example, a binding WCI auction floor makes the cut real), not simulated; the ETS covers fuel use, so a shift's saving is assumed to fall on ETS installations; the 2027 ETS2 (buildings and transport) is a separate market.
 
+## 5k. Two batteries on one grid: grid storage erases most of the carbon value of shifting
+
+F22 showed that a flexible workload under a power cap is a lossless battery. Grids are now filling with real batteries that arbitrage the same daily swing. California's fleet grew from about 0.5 GW (2020) to about 13 GW (December 2024, CAISO DMM), and 2025 added a record 4.7 GW / 16.5 GWh (Modo Energy). Two batteries on one grid compete for the same resource: the midday clean surplus.
+
+**Theorem (no-arbitrage, carbon version).** If an emission-minimising storage fleet with round-trip efficiency η charges in hour a and discharges in hour b, and none of its power or energy limits binds, the marginal emission rates satisfy m_a = η·m_b. Moving one kWh of load from b to a then cuts emissions by only (1 − η)·m_b. The kWh moved displaces battery charging, the battery returns η kWh less in b, and the marginal generator fills the gap. On a storage-rich grid the saving of carbon-aware shifting is the battery's round-trip loss, not the hourly swing. (Tested: the LP duals equal η exactly in the interior case.)
+
+**Finding 27 (F32).** CAISO, F24 model (curtailed renewables are free, otherwise a 490 g/kWh gas margin). The observed curtailment is already net of the existing fleet, so the battery we add is *extra*, dispatched to minimise emissions. New data-centre fleet: φ = 0.5, cap 1/0.70, 24 h slack, η = 0.85. Daily LP, with storage re-optimised in both the flat baseline and the shifted case. Real saving per flexible kWh, share kept vs no extra storage:
+
+| Extra storage | 2021 (0.1 / 1 GW) | 2022 | 2023 | 2024 |
+|---|---|---|---|---|
+| none (g/kWh) | 90 / 17 | 103 / 30 | 114 / 30 | 122 / 44 |
+| +1 GW, 4 h | 51% / 66% | 61% / 78% | 67% / 75% | 69% / 79% |
+| **+4.7 GW / 16.5 GWh (CAISO's 2025 build)** | 24% / 29% | 37% / 45% | 47% / 46% | **41% / 45%** |
+| +10 GW, 4 h | 17% / 15% | 23% / 22% | 40% / 33% | 22% / 19% |
+| +20 GW, 4 h | 16% / 15% | 20% / 22% | 35% / 22% | 18% / 15% |
+
+With unlimited storage (2024, 0.1 GW fleet) the share kept is 0.31 / 0.22 / 0.175 / 0.13 / 0.08 / 0.035 for η = 0.70 / 0.80 / 0.85 / 0.90 / 0.95 / 1.00. That is (1 − η) plus at most 0.035, the surplus a battery that empties daily cannot return the same day.
+
+![Storage competition](../figures/storage_competition.png)
+
+**Second, independent method.** A greedy closed form without an LP: each day the data centre takes surplus first (efficiency 1), and the extra battery charges the remainder up to its power and energy and returns η of it. It ignores timing, so it bounds the LP from below. In 2024 it agrees within 5% (0.5% for the 1 GW fleet). It is looser in 2023 (as low as 0.43×), which has more night and late-day surplus that a daily-cycled battery cannot use.
+
+*Why it matters.* The field measures the value of shifting against today's hourly swing. On grids that are building storage fastest, the swing a scheduler sees is increasingly arbitraged by batteries, and the real saving tends to the round-trip loss. One year of California's battery build halves it. The data centre's flexibility is still useful: it is a lossless battery, better than a Li-ion battery by exactly the loss. But its value moves from carbon to avoided storage capex (F23 gives the exchange rate). A provider that keeps reporting hourly-swing savings on such a grid is counting carbon the grid's batteries would have saved anyway. *Prior work:* storage cannibalisation and the falling value of extra flexibility are known in power-systems economics (López Prol & Schill 2021); storage can raise emissions (Hittinger & Azevedo 2015); Carbon Explorer (Acun et al. 2023) notes that demand response reduces the battery a data centre needs. New here: the marginal-emission no-arbitrage identity applied to carbon-aware computing, and its size on a real grid. *Limitations:* the counterfactual holds each year's solar fixed (solar also grew in 2025); more than 70% of CAISO curtailment is local congestion (Next 10, 2026), which neither a remote battery nor a remote data centre can reach; constant gas margin; daily storage cycle. Outputs: `results/storage_competition_*.csv`.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.

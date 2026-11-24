@@ -125,7 +125,53 @@ flat load of $1$, with boundary condition $B_0=0$, $B_T=0$ (instead of a cyclic 
 % battery blends signals harmlessly in all 48 BAs; exchange rate vs a 4 h Li-ion battery (F23).
 
 \section{Fleets: Saturation and Herding}
-% F24, CAISO 2021-2024.  TODO.
+\label{sec:fleets}
+The truly free resource for flexible load is curtailed renewable energy, and it is finite. On
+CAISO 2021--2024, with curtailed energy free and a constant gas margin otherwise, the saving per
+flexible kWh of a coordinated fleet falls by two-thirds between 0.1 and 1\,GW of mean load and
+reaches zero near 8\,GW. A herd of independent schedulers that all follow the same exogenous signal
+raises emissions from 0.5--1\,GW upwards when uncapped. With a +20--50\% power cap the herd keeps
+97--100\% of the coordinated optimum: in a fleet, the cap of Section~\ref{sec:model} acts as an
+anti-herding device.
+% Numbers: results/curtailment_*.csv (F24).
+
+\section{Two Batteries on One Grid}
+\label{sec:twobatteries}
+Theorem~\ref{thm:battery} has a consequence for grids that already have batteries: there
+are then two batteries competing for the same clean surplus. Let the grid's storage fleet have
+round-trip efficiency $\eta<1$ and be dispatched to minimise emissions, and let $m_t$ be the
+marginal emission rate (the dual of the energy balance in hour $t$).
+\begin{theorem}[No-arbitrage]\label{thm:noarb}
+If in an optimal dispatch the storage fleet charges in hour $a$ and discharges in hour $b$
+(after $a$, the same cycle), and neither its power limits in $a$ and $b$ nor its energy limit
+between them binds, then $m_a=\eta\,m_b$. Moving one unit of flexible load from $b$ to $a$
+then changes emissions by $-(1-\eta)\,m_b$ to first order.
+\end{theorem}
+Thus on a storage-rich grid the carbon value of shifting is the grid battery's round-trip loss,
+not the hourly swing. The flexible workload is a \emph{lossless} battery
+(Theorem~\ref{thm:battery}), so it still beats the grid's battery by exactly $1-\eta$, but its
+value has moved from carbon to avoided storage.
+
+\emph{Evidence (CAISO).} We add emission-minimising storage ($\eta=0.85$) on top of the
+fleet already behind the observed curtailment, re-optimised in both the flat and the shifted
+case ($\varphi=0.5$, cap $1/0.70$, 24\,h slack). California's 2025 battery build alone
+(+4.7\,GW / 16.5\,GWh) leaves 41\% (0.1\,GW fleet) and 45\% (1\,GW fleet) of the 2024
+saving, and 24--47\% over 2021--2024. With unlimited storage the saving kept is
+$(1-\eta)+0.035$ or less for $\eta\in[0.7,1]$ (Figure~\ref{fig:twobatteries}). A
+timing-free greedy estimate that needs no LP agrees within 5\% in 2024.
+Prior work notes that storage and other flexibility cannibalise each
+other~\cite{prol2021the}, that storage can raise emissions~\cite{hittinger2015bulk}, and that
+demand response shrinks a data centre's battery~\cite{acun2023carbon}; we state the identity
+for carbon-aware computing and measure it on a real grid.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_storage_competition.pdf}
+\caption{Left: real saving of carbon-aware shifting kept as extra grid storage is added
+(CAISO, $\eta=0.85$). Right: with unlimited storage the saving kept tracks $1-\eta$
+(Theorem~\ref{thm:noarb}).}
+\label{fig:twobatteries}
+\end{figure}
+% Numbers: results/storage_competition_*.csv (F32); tests/test_storage_competition.py.
 
 \section{Not Every Knob Is a Battery}
 \begin{theorem}[Power-mean law]\label{thm:powermean}
@@ -170,6 +216,11 @@ adjustment absorbs it. In the EU this happens while the surplus of allowances (T
 then a fall in the allowance price, not in emissions (the waterbed; companion analysis).
 % Average vs marginal signals; fluid work; perfect forecasts (F11 bounds the error);
 % assumed alpha for speed scaling; constant gas margin in F24.
+\textbf{The grid may already have the battery.} Savings are measured against today's hourly
+swing. Where grid storage is growing fast, the counterfactual saving falls towards the
+round-trip loss (Section~\ref{sec:twobatteries}); our CAISO counterfactual holds each year's
+solar fixed and ignores local congestion, which neither a remote battery nor a remote data
+centre can relieve.
 
 \appendix
 \section{Proofs}
@@ -221,6 +272,18 @@ the saving. Writing $c_t=\bar c(1+\epsilon_t)$ with $\sum\epsilon_t=0$,
 $\Mp_p=\bar c\,(1+\frac{p-1}{2}\overline{\epsilon^2}+O(\epsilon^3))$, so the saving is
 $\frac{1-p}{2}\mathrm{CV}^2=\frac{\alpha}{2(\alpha-1)}\mathrm{CV}^2$ to second order. As
 $\alpha\to1^+$, $p\to-\infty$ and $\Mp_p\to\min_t c_t$.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:noarb}]
+Write the dispatch as a linear programme with energy balance in every hour (dual $m_t$),
+charge $c_t$, discharge $d_t$ and state of charge $e_t=e_{t-1}+c_t-d_t/\eta$. Since $c_a>0$ and
+$c_a$ is below its power limit, its reduced cost is zero: $m_a=\nu_a$, where $\nu_t$ is the
+dual of the state-of-charge equation (the shadow value of stored energy). Likewise $d_b>0$ below
+its limit gives $m_b=\nu_b/\eta$. If no energy bound binds between $a$ and $b$,
+complementary slackness on those bounds makes $\nu_t$ constant from $a$ to $b$, so
+$\nu_a=\nu_b$ and $m_a=\eta\,m_b$. A unit of load moved from $b$ to $a$ changes the optimal
+emissions by $m_a-m_b=-(1-\eta)m_b$ by the envelope theorem (exactly, for moves small enough
+that the basis does not change).
 \end{proof}
 
 \bibliographystyle{ACM-Reference-Format}

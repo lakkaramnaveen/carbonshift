@@ -26,6 +26,8 @@ EXTRA = [
     "G. Perino, R. A. Ritz, A. van Benthem. Overlapping Climate Policies. NBER Working Paper 25643, 2019.",
     "European Parliament and Council. Directive (EU) 2023/959 amending Directive 2003/87/EC and Decision (EU) 2015/1814 on the Market Stability Reserve. Official Journal of the EU, 2023.",
     "European Commission. Publication of the Total Number of Allowances in Circulation in 2025 for the Purposes of the Market Stability Reserve. Communication C/2026/2957, 2026.",
+    "J. Lopez Prol, W.-P. Schill. The Economics of Variable Renewable Energy and Electricity Storage. Annual Review of Resource Economics 13, 443-467, 2021.",
+    "B. Acun, B. Lee, F. Kazhamiaka, K. Maeng, U. Gupta, M. Chakkaravarthy, D. Brooks, C.-J. Wu. Carbon Explorer: A Holistic Framework for Designing Carbon Aware Datacenters. ASPLOS, 2023.",
     "Council of the EU. ETS Market Stability Reserve: Council and Parliament Reach Provisional Agreement on Targeted Amendment. Press release, 21 October 2026.",
 ]
 
