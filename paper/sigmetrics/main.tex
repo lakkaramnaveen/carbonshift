@@ -36,7 +36,10 @@ negligible, why tight caps plan beyond the slack, and why power caps stop uncoor
 carbon-aware fleets from herding. It also marks the boundary of the theory: convex knobs
 (DVFS, GPU power limits) are \emph{not} batteries. Their saving is the gap between the
 arithmetic and a power mean of the carbon signal, second order in its variation:
-0.79\% against 14.6\% for deferral on 123 grid zones.
+0.79\% against 14.6\% for deferral on 123 grid zones. And the battery has a standby load:
+spare servers that stay powered draw idle power, so always-on capacity built for shifting pays
+only below a break-even idle share $v/(v+\bar c)$, a median 10\% at $+42\%$ headroom, and raises
+emissions in 98\% of zones at today's server idle power. Shifting pays only on capacity that sleeps.
 \end{abstract}
 
 \keywords{carbon-aware computing, workload shifting, power capping, virtual storage, water-filling}
@@ -173,6 +176,48 @@ for carbon-aware computing and measure it on a real grid.
 \end{figure}
 % Numbers: results/storage_competition_*.csv (F32); tests/test_storage_competition.py.
 
+\section{The Battery Has a Standby Load}
+\label{sec:idle}
+Theorem~\ref{thm:battery} prices headroom as if servers were energy proportional. They are not:
+an idle x86 server draws a fraction $p_0$ of its full-load power (the SPECpower mean is reported
+at 15.7\% in 2017 and 25.7\% in 2024~\cite{tropgen2024};
+see also~\cite{barroso2007the}). If the spare capacity $h$ stays powered, facility power is
+$P_t=p_0(1+h)+(1-p_0)W_t$ for served work $W_t\le1+h$. Moving work moves only the dynamic part,
+and the spare capacity draws $p_0h$ in every hour whether it is used or not: the virtual
+battery has a \emph{standby load}.
+\begin{proposition}[Idle-power wall]\label{prop:idle}
+Let $S(h)$ be the energy-proportional saving of Section~\ref{sec:model} and $\bar c$ the mean
+signal. Building $h$ of always-on capacity for shifting changes emissions by
+$(1-p_0)S(h)-p_0h\bar c$, so it cuts carbon if and only if
+\[ p_0<p_0^*(h)=\frac{v(h)}{v(h)+\bar c},\qquad v(h)=\frac{S(h)}{h}. \]
+For a sinusoidal day of amplitude $A$ with one-day planning, $v(0^+)=A$ for every $\varphi$, so
+$p_0^*(0^+)=A/(A+\bar c)$; in general $p_0^*(h)\le1-\bar c/\max_tc_t$ for all $h$. The same
+inequality says when powering the spare capacity down (saving $p_0h\bar c$ without shifting)
+beats shifting into it with servers on (saving $(1-p_0)S(h)$).
+\end{proposition}
+\emph{Evidence.} 123 zones, 2020--2022, $\varphi=0.5$, 24\,h slack, exact LP over
+$h\in[0.01,1]$. The break-even idle share falls with the build (Figure~\ref{fig:idle}): a median
+26.7\% for the first 1\% of headroom, 10.0\% at the Google-real $+42\%$ and 5.8\% at $+100\%$
+(2022). At $p_0=25.7\%$, always-on $+42\%$ capacity built for shifting raises emissions in
+97.6--98.4\% of zones (median $-6.6$ to $-7.2\%$ of facility emissions), and in 85--90\% at
+$p_0=15.7\%$. On 53 US balancing authorities with marginal signals the break-even at $+42\%$ is
+a median 13.9\%, and the build raises emissions in 79\% of them at $p_0=25.7\%$. For capacity that
+already exists, powering it down saves 9.7\% while shifting into it saves a median 3.1\%;
+doing both saves 14.0\%. A direct hourly simulation of $P_t$ reproduces the LP shares exactly,
+and the daily water-filling law (no LP) gives a conservative 100\%.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.7\linewidth]{fig_idle_wall.pdf}
+\caption{Break-even idle share $p_0^*(h)$ for always-on capacity built for shifting (median and
+interquartile range). Above a dashed line, building that much headroom raises emissions.}
+\label{fig:idle}
+\end{figure}
+Prior work counts the \emph{embodied} carbon of idle servers in carbon-aware
+scheduling~\cite{bashir2024the}; the operational standby cost, and the law that sets its
+break-even, are new here. Shifting needs the spare capacity to sleep when it is not
+absorbing work. Otherwise power management is the larger lever.
+% Numbers: results/idle_*.csv (F33); tests/test_idle.py; scripts/idle_experiments.py.
+
 \section{Not Every Knob Is a Battery}
 \begin{theorem}[Power-mean law]\label{thm:powermean}
 Let a day's work $W=n$ be run at speeds $s_t\ge0$, $\sum_t s_t=n$, with power $s_t^{\alpha}$
@@ -221,6 +266,11 @@ swing. Where grid storage is growing fast, the counterfactual saving falls towar
 round-trip loss (Section~\ref{sec:twobatteries}); our CAISO counterfactual holds each year's
 solar fixed and ignores local congestion, which neither a remote battery nor a remote data
 centre can relieve.
+
+\textbf{Idle power and wake-up.} Section~\ref{sec:idle} treats sleep as free and
+instantaneous at fleet level; real wake-up latency and the spare kept for failover
+(redundancy) limit how much spare capacity can sleep. Idle fractions are SPECpower x86 means,
+not GPU servers.
 
 \appendix
 \section{Proofs}
@@ -284,6 +334,23 @@ complementary slackness on those bounds makes $\nu_t$ constant from $a$ to $b$, 
 $\nu_a=\nu_b$ and $m_a=\eta\,m_b$. A unit of load moved from $b$ to $a$ changes the optimal
 emissions by $m_a-m_b=-(1-\eta)m_b$ by the envelope theorem (exactly, for moves small enough
 that the basis does not change).
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:idle}]
+Baseline (no build, run on arrival): $W_t=1$ on capacity 1, so $P_t=p_0+(1-p_0)=1$ and
+emissions are $\bar c$ per hour. With $h$ built and always on, $P_t=p_0(1+h)+(1-p_0)W_t$ and
+$\sum_tc_tW_t/T=\bar c-S(h)$, so emissions are $p_0h\bar c+\bar c-(1-p_0)S(h)$; the change is
+negative iff $(1-p_0)S(h)>p_0h\bar c$, i.e.\ $p_0<v/(v+\bar c)$. Starting instead from existing,
+always-on spare capacity, sleeping it saves $p_0h\bar c$ and shifting with it on saves
+$(1-p_0)S(h)$, the same inequality. For the sinusoid, $S=\varphi A\sinc(\pi q)$ with
+$q=\varphi/(\varphi+h)$ (Proposition~\ref{prop:sinc}); as $h\to0$, $q\to1$,
+$\sinc'(\pi)=-1/\pi$ and $dq/dh=-1/\varphi$, so $dS/dh\to\varphi A\cdot\pi\cdot\frac1\pi\cdot\frac1\varphi=A$.
+Finally, write $\delta_t=y_t-\varphi$, so $\sum_t\delta_t=0$, $\delta_t\le h$ and
+$TS=\sum_tc_t\delta_t^--\sum_tc_t\delta_t^+$. With $M=\sum_t\delta_t^+=\sum_t\delta_t^-$ and
+$f=M/(hT)\in[0,1]$, the first sum is at most $M\max c$ and the second at least $hT$ times the
+integral of $c$ over its cleanest fraction $f$ of hours, so $S/h\le g(f)=f\max c-\int_0^f c_{(u)}\,du$,
+where $c_{(u)}$ is the quantile function. Since $g'(f)=\max c-c_{(f)}\ge0$, $g(f)\le g(1)=\max c-\bar c$.
+Hence $v(h)\le\max c-\bar c$ and $p_0^*\le1-\bar c/\max c$.
 \end{proof}
 
 \bibliographystyle{ACM-Reference-Format}

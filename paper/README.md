@@ -5,5 +5,6 @@
   appendix (homogeneity, sinusoidal water-filling, virtual-battery equivalence, power-mean law).
   Sections marked TODO are to be ported from `scripts/build_workshop_battery.py`.
 
-Build with `latexmk -pdf main.tex` on a machine with TeX Live (`acmart` is part of it). The research
-machine has no LaTeX, so the skeleton has not been compiled yet; check it compiles before relying on it.
+Build with `latexmk -pdf main.tex` on a machine with TeX Live (`acmart` is part of it). It compiles
+cleanly as of 2026-11-25 (7 pages, no undefined references); the compiled draft is `sigmetrics/main.pdf`.
+Regenerate the bibliography with `python scripts/build_bib.py`.

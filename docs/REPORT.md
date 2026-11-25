@@ -548,6 +548,33 @@ With unlimited storage (2024, 0.1 GW fleet) the share kept is 0.31 / 0.22 / 0.17
 
 *Why it matters.* The field measures the value of shifting against today's hourly swing. On grids that are building storage fastest, the swing a scheduler sees is increasingly arbitraged by batteries, and the real saving tends to the round-trip loss. One year of California's battery build halves it. The data centre's flexibility is still useful: it is a lossless battery, better than a Li-ion battery by exactly the loss. But its value moves from carbon to avoided storage capex (F23 gives the exchange rate). A provider that keeps reporting hourly-swing savings on such a grid is counting carbon the grid's batteries would have saved anyway. *Prior work:* storage cannibalisation and the falling value of extra flexibility are known in power-systems economics (López Prol & Schill 2021); storage can raise emissions (Hittinger & Azevedo 2015); Carbon Explorer (Acun et al. 2023) notes that demand response reduces the battery a data centre needs. New here: the marginal-emission no-arbitrage identity applied to carbon-aware computing, and its size on a real grid. *Limitations:* the counterfactual holds each year's solar fixed (solar also grew in 2025); more than 70% of CAISO curtailment is local congestion (Next 10, 2026), which neither a remote battery nor a remote data centre can reach; constant gas margin; daily storage cycle. Outputs: `results/storage_competition_*.csv`.
 
+## 5l. The battery has a standby load: the idle-power wall
+
+F22 showed that a flexible workload under a power cap is a lossless battery, and every result since has priced the spare capacity h that makes it work as if servers were energy proportional. They are not. An idle x86 server draws a fraction p0 of its full-load power: the SPECpower_ssj2008 mean is reported at 15.7% in 2017 (its best year) and 25.7% in 2024 (Tröpgen et al., IEEE Cluster Workshops 2024). One 2024 result we checked by hand, an HPE ProLiant DL365 Gen11, draws 144 W idle against 890 W at full load (16%).
+
+**Model.** Capacity 1 + h, power per unit of capacity 1 at full load. If the spare servers stay powered, P_t = p0(1 + h) + (1 − p0)W_t, where W_t is the work served. Moving work moves only the dynamic part, and the spare capacity draws p0·h in every hour whether or not it is used. In battery terms: the virtual battery has a standby load, like a real battery's own cooling and electronics.
+
+**Proposition (idle-power wall).** Building h of always-on capacity for shifting changes emissions by (1 − p0)S(h) − p0·h·c̄, so it cuts carbon iff p0 < p0*(h) = v/(v + c̄), with v = S(h)/h the average carbon value of a unit of headroom. For a sinusoidal day with one-day planning, v(0+) = A exactly (sinc′(π) = −1/π), for every φ. For any horizon, p0* ≤ 1 − c̄/max c. The same inequality decides whether, for spare capacity that already exists, powering it down (saving p0·h·c̄) beats shifting into it with the servers on (saving (1 − p0)S(h)).
+
+**Finding 28 (F33).** 123 zones × 2020-2022, φ = 0.5, 24 h slack, exact LP:
+
+| Build h (always on) | +1% | +5% | +10% | +20% | **+42% (Google-real)** | +100% |
+|---|---|---|---|---|---|---|
+| median break-even idle share p0* (2022) | 26.7% | 19.3% | 16.8% | 13.4% | **10.0%** | 5.8% |
+| zones where the build raises emissions at p0 = 25.7% | 47% | 69% | 83% | 91% | **97.6%** | 100% |
+| zones where the build raises emissions at p0 = 15.7% | 24% | 37% | 47% | 60% | 85% | 97% |
+
+- At the 2024 SPECpower mean (25.7%), always-on +42% built for shifting raises emissions in 97.6-98.4% of zones in 2020-2022, by a median 6.6-7.2% of facility emissions. At the 2017 best year (15.7%) it raises them in 85-90%.
+- Capacity that already exists (+42%, p0 = 25.7%, 2022): powering the spare down saves 9.7% (the same in every zone: p0h/(1 + p0h)), shifting into it with servers on saves a median 3.1%, and doing both saves 14.0%. Sleep beats shift in 97.6% of zones.
+- 53 US balancing authorities (EIA-930 2022): on the marginal signal p0*(+42%) is a median 13.9% and the build raises emissions in 79% of BAs at 25.7% (55% at 15.7%); on the average signal in 100%.
+- The zones where always-on capacity still pays at +42% have huge relative swings: South Australia, Southern Norway (NO-NO2), Ontario.
+
+![Idle-power wall](../figures/idle_wall.png)
+
+**Second, independent derivation.** A direct hourly simulation of P_t from the LP's served profile gives the same 97.6% and the same median 3.14% to machine precision. The daily water-filling law, which needs no optimiser, gives 100%: it is conservative because it cannot plan across days. On a pure sine the LP's dual at a 0.1% build equals A within 2% (tested), and the LP's p0* never exceeds the bound 1 − c̄/max c in any of the 369 zone-years.
+
+*Why it matters.* The field asks *when* flexible work should run. On real servers the first-order question is whether the capacity it would run on is *switched off* the rest of the time. Spare capacity kept warm for clean hours costs more carbon in idle power than shifting into it saves, almost everywhere. So shifting and power management are complements, not substitutes: shifting pays only on capacity that sleeps when it is not absorbing work, and then it adds its full value S(h), 1/(1 − p0) more than with servers on. This also changes F12's reading: Google's +42% spare is worth 9.7% of emissions if powered down, three times what shifting into it is worth with the servers on. *Prior work:* Barroso & Hölzle (2007) made energy proportionality the goal; Bashir et al. (SoCC'24) count the *embodied* carbon of idle servers in carbon-aware scheduling metrics. New here: the operational standby cost of capacity used for shifting, its break-even law, and its size across 123 grids. *Limitations:* sleep is idealised (fleet level, no wake-up latency or energy); spare kept for failover (F9) cannot sleep; idle shares are x86 CPU servers (GPU servers differ); one φ and slack. Outputs: `results/idle_{zones,bas,summary}.csv`, `scripts/idle_experiments.py`.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
