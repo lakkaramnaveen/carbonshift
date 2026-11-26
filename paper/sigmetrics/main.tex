@@ -1,10 +1,9 @@
 % Full-paper skeleton for ACM SIGMETRICS 2027 (winter cycle; POMACS format).
-% Build:  latexmk -pdf main.tex   (needs TeX Live with acmart >= 2.x; not available on the
-% build machine used for the research runs, so this file has not yet been compiled).
+% Build:  latexmk -pdf main.tex   (needs TeX Live with acmart >= 2.x; compiles as of 2026-11-26).
 % Every number below is copied from results/*.csv; `scripts/build_workshop_battery.py`
 % is the content source. Keep the two in sync until the numbers are macro-generated.
 \documentclass[acmsmall,review,anonymous]{acmart}
-\usepackage{amsmath,amssymb,amsthm}
+\usepackage{amsmath,amsthm}  % acmart (newtxmath) already provides the AMS symbols
 \usepackage{booktabs}
 
 \newtheorem{theorem}{Theorem}
@@ -40,6 +39,9 @@ arithmetic and a power mean of the carbon signal, second order in its variation:
 spare servers that stay powered draw idle power, so always-on capacity built for shifting pays
 only below a break-even idle share $v/(v+\bar c)$, a median 10\% at $+42\%$ headroom, and raises
 emissions in 98\% of zones at today's server idle power. Shifting pays only on capacity that sleeps.
+Priced in money, headroom built for shifting abates carbon at a median \$3{,}558 per tonne
+(GPU capacity: \$33{,}000), against a social cost of carbon of \$190, in no zone below it: shifting
+is a by-product of capacity, never a reason to build it.
 \end{abstract}
 
 \keywords{carbon-aware computing, workload shifting, power capping, virtual storage, water-filling}
@@ -114,6 +116,17 @@ The uncapped saving is $\varphi A$ and the peak draw is $1+24\varphi$.
 \end{proposition}
 % Empirics: uncapped R^2 0.998 (phi*A), capped R^2 0.968 (4,680 LP solves); water-level
 % shadow price R^2 0.981 (results/waterfill_*.csv).
+\emph{Evidence.} On 123 zones the uncapped saving is $\varphi A$ with $R^2=0.998$ and the capped
+closed form fits the LP with $R^2=0.968$ (4{,}680 solves); the share of the ideal kept collapses
+onto one curve in $h/\varphi$ for every $\varphi$ (Figure~\ref{fig:universal}).
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.6\linewidth]{fig_wsb_universal.pdf}
+\caption{Share of the uncapped saving kept against headroom per unit of flexible load: LP
+medians for three flexible shares and the sinusoidal law $\sinc(\pi q)$
+(Theorem~\ref{thm:homog}, Proposition~\ref{prop:sinc}).}
+\label{fig:universal}
+\end{figure}
 
 \section{Flexible Load under a Cap Is a Battery}
 \label{sec:battery}
@@ -126,6 +139,28 @@ flat load of $1$, with boundary condition $B_0=0$, $B_T=0$ (instead of a cyclic 
 \end{theorem}
 % Corollaries (F22): UPS = 1/72 of the virtual energy; effective horizon s*phi/h; lossless
 % battery blends signals harmlessly in all 48 BAs; exchange rate vs a 4 h Li-ion battery (F23).
+Two corollaries are visible in data. First, the virtual battery's energy-to-charge-power ratio
+$s\varphi/h$ is an \emph{effective horizon}: with tight caps the optimal schedule plans beyond
+the nominal slack, and a law evaluated on blocks of that length removes the bias of fixed
+one-day blocks (Figure~\ref{fig:horizon}). Second, the virtual battery can be priced against a
+real one: at $+20\%$ headroom a half-flexible facility saves as much carbon as a median 4.3\,kWh
+of 4\,h, 90\%-efficient Li-ion storage per kW of mean load (Figure~\ref{fig:exchange}), at
+1/31 of its embodied carbon.
+\begin{figure}[t]
+\centering
+\begin{minipage}{0.48\linewidth}\centering
+\includegraphics[width=\linewidth]{fig_wsb_horizon.pdf}
+\caption{Error of the closed-form law against the LP, with fixed blocks and with the
+effective horizon $s\varphi/h$.}
+\label{fig:horizon}
+\end{minipage}\hfill
+\begin{minipage}{0.48\linewidth}\centering
+\includegraphics[width=\linewidth]{fig_wsb_exchange.pdf}
+\caption{Equal-carbon battery: kWh of 4\,h storage per kW of load that saves as much as the
+headroom (median, IQR).}
+\label{fig:exchange}
+\end{minipage}
+\end{figure}
 
 \section{Fleets: Saturation and Herding}
 \label{sec:fleets}
@@ -218,6 +253,49 @@ break-even, are new here. Shifting needs the spare capacity to sleep when it is 
 absorbing work. Otherwise power management is the larger lever.
 % Numbers: results/idle_*.csv (F33); tests/test_idle.py; scripts/idle_experiments.py.
 
+\section{The Price of a Shifted Tonne}
+\label{sec:mac}
+Sections~\ref{sec:battery}--\ref{sec:idle} count shifting in grams. Every other abatement
+option is judged in money per tonne, against the social cost of carbon (SCC; \$190/t at a 2\%
+discount rate, \$120--340 over 2.5--1.5\%~\cite{agency2023report}). The virtual battery needs
+headroom, so the abatement cost of shifting is the cost of that headroom per tonne it moves.
+\begin{proposition}[Abatement cost and its floor]\label{prop:mac}
+Let headroom cost $\kappa$ dollars per kW-year and let $v(h)=S(h)/h$ be its carbon value in g per
+kW-hour. Its abatement cost is $\mathrm{MAC}(h)=\kappa/(8.76\cdot10^{-3}\,v(h))$ dollars per
+tonne. For every slack, flexible share and schedule, $v(h)\le\max_tc_t-\bar c$, so
+\[ \mathrm{MAC}(h)\ \ge\ \frac{\kappa}{8.76\cdot10^{-3}\,(\max_tc_t-\bar c)}, \]
+and headroom can pass an SCC test only if $\max_tc_t-\bar c\ge\kappa/(8.76\cdot10^{-3}\,\mathrm{SCC})$.
+\end{proposition}
+\emph{Evidence.} Data-centre power capacity costs \$6.7--15.2k per kW~\cite{turner2025data}
+(\$1{,}010/kW-yr at 7\% over 20 years); GPU capacity adds a DGX H100 (\$300--400k for 10.2\,kW,
+5 years), \$9{,}379/kW-yr in total; a 4\,h battery costs \$110--400 per kWh~\cite{finance2025energy}.
+The required swing is 607\,g/kWh for facility power at central cost and 2{,}300\,g/kWh for GPU
+capacity even at the cheapest cost, a 3\% rate and SCC \$340: no grid has it. On 123 zones
+(2022, $\varphi=0.5$, 24\,h slack, exact LP) a Google-real $+42\%$ build abates at a median
+\$3{,}558/t (\$4{,}189 and \$3{,}810 in 2020 and 2021), the first 1\% at \$1{,}015/t, and GPU
+capacity at \$9{,}423--33{,}043/t; no zone is under \$190 (Figure~\ref{fig:mac}). At SCC \$190 a
+$+42\%$ build is worth a median \$571 per kW, 4--9\% of its price. Over 135 combinations of cost,
+discount rate, SCC and data set (including 53 US balancing authorities on average and marginal
+signals), facility headroom at $+42\%$ passes in no zone in 134, and GPU capacity in none. To pay
+for itself through the electricity bill a $+42\%$ build would have to earn a median \$209 per
+moved MWh. A separately written LP reproduces $v(h)$ exactly, and the primal never exceeds the
+floor in any zone-year. On the marginal signal a grid battery is the cheaper tonne in 83\% of
+balancing authorities (median \$384/t), reversing the carbon-only ranking of
+Figure~\ref{fig:exchange}.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.7\linewidth]{fig_abatement.pdf}
+\caption{Abatement cost of carbon-aware shifting across 123 zones (2022, central costs, 7\%),
+against the US social cost of carbon (dashed).}
+\label{fig:mac}
+\end{figure}
+Carbon Explorer~\cite{acun2023carbon} weighs extra servers against operational carbon in carbon
+units, and the sunk-carbon argument~\cite{bashir2024the} treats owned servers' embodied carbon as
+sunk. Proposition~\ref{prop:mac} gives the economic counterpart: shifting is cheap only on
+capacity whose cost is already sunk (growth, redundancy) and, by Proposition~\ref{prop:idle},
+that sleeps when idle. It is a by-product of capacity, never a reason to build it.
+% Numbers: results/abatement_*.csv (F34); tests/test_abatement.py; scripts/abatement_experiments.py.
+
 \section{Not Every Knob Is a Battery}
 \begin{theorem}[Power-mean law]\label{thm:powermean}
 Let a day's work $W=n$ be run at speeds $s_t\ge0$, $\sum_t s_t=n$, with power $s_t^{\alpha}$
@@ -271,6 +349,11 @@ centre can relieve.
 instantaneous at fleet level; real wake-up latency and the spare kept for failover
 (redundancy) limit how much spare capacity can sleep. Idle fractions are SPECpower x86 means,
 not GPU servers.
+
+\textbf{Costs.} Section~\ref{sec:mac} uses capacity and battery prices from industry
+surveys as reported in trade press, a 3--10\% discount rate and the US SCC; electricity-price
+savings are stated as a requirement (dollars per moved MWh), not estimated, because no hourly
+prices are used. Lower carbon prices (e.g.\ the EU ETS) strengthen the conclusion.
 
 \appendix
 \section{Proofs}
@@ -352,6 +435,16 @@ integral of $c$ over its cleanest fraction $f$ of hours, so $S/h\le g(f)=f\max c
 where $c_{(u)}$ is the quantile function. Since $g'(f)=\max c-c_{(f)}\ge0$, $g(f)\le g(1)=\max c-\bar c$.
 Hence $v(h)\le\max c-\bar c$ and $p_0^*\le1-\bar c/\max c$.
 \end{proof}
+
+
+\paragraph{Proof of Proposition~\ref{prop:mac}.} Let $a_t$ be arrivals, $y_t$ the served
+flexible work and $d_t=y_t-a_t$. Every schedule serves all work, so $\sum_td_t=0$, and the cap
+gives $d_t\le h$. Then $LS(h)=-\sum_tc_td_t=\sum_t(c^{\max}-c_t)d_t$, using $\sum_td_t=0$.
+Split the sum by the sign of $d_t$: terms with $d_t<0$ are $\le0$ because $c^{\max}-c_t\ge0$, and
+terms with $d_t>0$ are at most $(c^{\max}-c_t)h$. Hence
+$S(h)\le\frac hL\sum_t(c^{\max}-c_t)=h(c^{\max}-\bar c)$, so $v(h)\le c^{\max}-\bar c$. One kW
+with value $v$ for 8{,}760 hours saves $8.76\cdot10^{-3}v$ tonnes, which gives the floor and the
+required swing. \hfill$\square$
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}   % generated by scripts/build_bib.py

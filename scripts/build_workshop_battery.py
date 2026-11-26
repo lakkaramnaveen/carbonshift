@@ -58,6 +58,16 @@ def knob(n, kind: str, alpha: float, cap: str, col: str = "median_saving_pct") -
     return float(row[col].iloc[0])
 
 
+PAPER_DIR = Path(__file__).resolve().parents[1] / "paper" / "sigmetrics"
+
+
+def _save(fig, name: str) -> Path:
+    """Save the PNG used by the reportlab draft and a vector PDF for the LaTeX paper."""
+    PAPER_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(PAPER_DIR / f"fig_{name}.pdf")
+    return P.save(fig, name)
+
+
 def figures(n) -> list[Path]:
     import matplotlib.pyplot as plt
     P.setup()
@@ -75,7 +85,7 @@ def figures(n) -> list[Path]:
     ax.plot(x, retained_sinc(1.0, 1 + x) * 100, color=P.INK, lw=1.0, ls="--", label="sinc(πq), sinusoidal day")
     ax.set(xscale="log", xlabel="Headroom per unit of flexible load, h/φ", ylabel="Share of uncapped saving kept (%)", ylim=(0, 100))
     ax.legend(frameon=False, loc="lower right")
-    out.append(P.save(fig, "wsb_universal"))
+    out.append(_save(fig, "wsb_universal"))
 
     # 2. effective horizon fixes the tight-cap bias
     hz = n["hz"]
@@ -90,7 +100,7 @@ def figures(n) -> list[Path]:
     ax.axhline(0, color=P.INK_2, lw=0.5)
     ax.set(xscale="log", xlabel="Headroom h (% of mean load)", ylabel="Law vs LP, median error (%)")
     ax.legend(frameon=False, loc="lower right")
-    out.append(P.save(fig, "wsb_horizon"))
+    out.append(_save(fig, "wsb_horizon"))
 
     # 3. exchange rate
     xz = n["xz"]
@@ -103,7 +113,7 @@ def figures(n) -> list[Path]:
         ax.plot(hx, g.median(), color=col, marker="o", ms=2.5, lw=1.4, label=f"φ = {phi}")
     ax.set(xlabel="Headroom h (% of mean load)", ylabel="Equal-carbon battery\n(kWh per kW of load)")
     ax.legend(frameon=False, loc="upper left")
-    out.append(P.save(fig, "wsb_exchange"))
+    out.append(_save(fig, "wsb_exchange"))
     plt.rcdefaults()
     return out
 
@@ -252,4 +262,8 @@ def build() -> None:
 
 
 if __name__ == "__main__":
-    build()
+    import sys
+    if "--figures-only" in sys.argv:
+        print([str(f) for f in figures(load())])
+    else:
+        build()
