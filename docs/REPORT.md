@@ -604,6 +604,34 @@ Every earlier finding counted carbon-aware shifting in grams: per kWh, per kW of
 
 *Why it matters.* The carbon-aware computing literature sells shifting as free, and F8 found that electrical headroom repays its *embodied carbon* in under a year. Both are true and both mislead: priced in money, capacity built for shifting is one of the most expensive ways to abate carbon in the economy, 5-22× the US SCC for facility power and 50-200× for GPUs, in every grid and every year. The only capacity on which shifting is cheap is capacity that exists for another reason (growth, redundancy: F9) and whose cost is sunk, and F33 adds that it must sleep when idle. Shifting is a by-product of capacity, never a reason to build it. *Prior work:* Carbon Explorer (Acun et al., ASPLOS'23) trades extra servers against operational carbon in *carbon* units; Bashir et al. (SoCC'24) argue that embodied carbon of owned servers is sunk; Lindberg et al. (e-Energy'21) report cost changes of geographical shifting. We found no dollar-per-tonne analysis of carbon-aware shifting. *Limitations:* capex figures come from trade-press summaries of industry reports; one φ and slack; electricity-price savings bounded by a requirement, not measured; the SCC is a US federal estimate whose federal use was withdrawn in 2025 (Executive Order 14154); EU ETS prices (about €70-80/t) are lower still, which strengthens the result.
 
+## 5n. Who produced the saving? Euler splits it between flexibility and capacity
+
+Carbon-aware tools credit a saving to the *workload*: a job "saved" its grams by waiting. The virtual battery (F22) has two inputs, though: the users' flexible work φ (its energy) and the operator's headroom h (its charge power). Who produced the saving?
+
+**Law.** The capped saving S(φ, h) is concave and homogeneous of degree one (F21), so Euler's theorem (Wicksteed-Flux product exhaustion, 1894) splits it exactly into marginal products, **S = φ·∂S/∂φ + h·∂S/∂h**, for every supergradient (so also for LP duals at a degenerate basis), and this split is the Aumann-Shapley value of the two inputs. With capacity share σ_h = h·∂S/∂h / S: the counterfactual savings of all jobs (each job's flexibility removed in turn) sum to only (1 − σ_h)·S, so per-job claims at the average rate overstate them by 1/(1 − σ_h); flexibility and headroom are complements. For a sine day σ_h = (1 − q)(1 − πq·cot πq), q = φ/(φ + h): 1 when headroom is scarce, 0 in the uncapped world of the EuroSys'24 bounds.
+
+**Finding 30 (F35).** 120 zones × 2020-2022, φ = 0.5, 24 h slack, exact LP (`src/carbonshift/attribution.py`, `scripts/attribution_experiments.py`):
+
+| capacity share σ_h (median, 2022) | +20% headroom | Google-real +42% |
+|---|---|---|
+| exact LP, 120 zones (10-90%) | **0.55** (0.40-0.80) | **0.43** (0.30-0.76) |
+| zones where capacity is the larger input | 77% | 33% |
+| per-job overclaim 1/(1 − σ_h) | 2.2× | 1.7× |
+| sine closed form / calendar-day water-filling | 0.80 / 0.73 | 0.56 / 0.59 |
+| US BAs, average / marginal signal | 0.57 / 0.67 | 0.45 / 0.58 |
+| slack 6 h / 168 h | 0.48 / 0.60 | 0.28 / 0.49 |
+
+- **Stable across years**: 0.55 / 0.56 / 0.55 (+20%) and 0.42 / 0.42 / 0.43 (+42%) in 2020 / 2021 / 2022.
+- **The grid's clock, not its swing, sets the split.** σ_h rank-correlates with the share of hourly variance in the average daily shape at **0.82-0.85** (2022; 0.73-0.79 in 2020-21), and with the daily standard deviation (the F15 statistic) at only 0.35-0.40. Top-quartile clock-like zones: 0.73-0.79; bottom quartile: 0.37-0.48. On clock-like grids (Korea, India, Israel, Kansai) the battery is power-limited and capacity produces 90-100%: in Korea at +20% a tenant's flexibility is worth nothing at the margin. On weather-driven grids (Nordic hydro, Tasmania, Pacific Northwest) it is energy-limited and flexibility produces 75-95%.
+- **The closed form overstates capacity's share** because the LP stores work across days; multi-day weather variation is what makes flexible *energy* valuable.
+- **Hypothesis outcome: mixed.** Capacity is the majority input at +20% (held) but not at the Google-real +42% (failed).
+
+![Capacity share of the shifting saving](../figures/attribution_shares.png)
+
+**Second, independent derivations.** (1) Analytic order-statistic marginals equal central finite differences (tests). (2) Sine closed form, water-filling and LP agree within 0.015 (tests). (3) LP cap duals vs finite differences in h: median relative gap 0.08%; Euler residual at most 0.44% of S in every 24 h zone-year. (4) Discrete tenants on DE, CAISO, GB, KR, SE-SE4: removing each of 10 equal tenants' flexibility, and each tenth of the headroom, in turn gives tenant sums 0.00-0.81·S and headroom sums 0.21-1.00·S, totals 1.00-1.04·S (finite steps of a concave function over-count slightly), matching σ_h zone by zone.
+
+*Why it matters.* A job's "saved by waiting" is half someone else's: the operator's idle capacity, the same input whose standby load (F33) and price (F34) bound the theory. Carbon dashboards, SDKs and per-job reports that credit the whole saving to the job overstate its counterfactual about 2×, more on solar/clock-like grids; incentive schemes that pay users for declaring flexibility pay for the abundant input there. *Prior work:* Shapley attribution of cloud *emissions* among workloads (Fair-CO2, ISCA'25; Han et al., HotCarbon'24); dependence of reported savings on the accounting method (The Green Mirage, e-Energy'24). We found no attribution of a shifting *saving* between the inputs that jointly produce it. *Limitations:* fluid work; one φ; the job-level counterfactual assumes the job would still run (inflexibly) inside the same cap; slack-6 h Euler residuals reach 11% in one zone (a finite difference across a kink of the piecewise-linear LP).
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.

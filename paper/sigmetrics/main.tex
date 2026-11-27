@@ -41,7 +41,10 @@ only below a break-even idle share $v/(v+\bar c)$, a median 10\% at $+42\%$ head
 emissions in 98\% of zones at today's server idle power. Shifting pays only on capacity that sleeps.
 Priced in money, headroom built for shifting abates carbon at a median \$3{,}558 per tonne
 (GPU capacity: \$33{,}000), against a social cost of carbon of \$190, in no zone below it: shifting
-is a by-product of capacity, never a reason to build it.
+is a by-product of capacity, never a reason to build it. Euler's theorem splits the saving exactly
+between users' flexibility and operators' capacity: capacity produces a median 55\% at $+20\%$
+headroom and 43\% at $+42\%$, more on clock-like grids, so per-job carbon claims overstate what
+the jobs' flexibility did by about $2\times$.
 \end{abstract}
 
 \keywords{carbon-aware computing, workload shifting, power capping, virtual storage, water-filling}
@@ -83,10 +86,28 @@ on Electricity Maps traces for 123 grid zones over three years~\cite{maps2022hou
   helps, why tight caps plan beyond the slack, and why signals blend for load but not for storage.
 \item A storage exchange rate: with +20\% headroom a half-flexible facility is worth a median
   4.3\,kWh of 4\,h Li-ion storage per kW of load, at 1/31 of the embodied carbon.
-\item The boundary of the theory: convex knobs (DVFS, GPU power limits) are not batteries; their
-  saving is a power-mean gap, second order in the signal's variation
-  (Theorem~\ref{thm:powermean}; median 0.79\% against 14.6\% for deferral).
+\item Who produced the saving: because $S$ is homogeneous and concave, Euler's theorem splits it
+  exactly between the users' flexibility and the operator's headroom (\S\ref{sec:attribution}).
+  At realistic headroom capacity produces most of the saving, so per-job carbon claims overstate
+  what the jobs' flexibility did.
 \end{itemize}
+
+\textbf{Four boundaries.} A battery that is free to use is not free to build or to keep. The
+theory comes with four limits, one per section, each with a closed form and a one-line rule:
+\begin{itemize}
+\item \emph{Knob} (\S\ref{sec:knob}): convex knobs (DVFS, GPU power limits) are not batteries;
+  their saving is a power-mean gap, second order in the signal's variation
+  (Theorem~\ref{thm:powermean}; median 0.79\% against 14.6\% for deferral). The carbon knob is
+  \emph{when}, not \emph{how fast}.
+\item \emph{Grid} (\S\ref{sec:twobatteries}): where grid storage is unconstrained, no-arbitrage
+  leaves shifting only the round-trip loss $(1-\eta)$ of today's value.
+\item \emph{Hardware} (\S\ref{sec:idle}): spare servers that stay on draw idle power; always-on
+  capacity built for shifting raises emissions in 98\% of zones. Shift only onto capacity that sleeps.
+\item \emph{Money} (\S\ref{sec:mac}): headroom built for shifting abates at a median \$3{,}558/t,
+  in no zone below the social cost of carbon. Use the battery; never buy it.
+\end{itemize}
+Together with the attribution result they say one thing: the scarce input of carbon-aware
+shifting is capacity that already exists, not flexible work.
 
 \section{Model}
 \label{sec:model}
@@ -172,6 +193,49 @@ raises emissions from 0.5--1\,GW upwards when uncapped. With a +20--50\% power c
 97--100\% of the coordinated optimum: in a fleet, the cap of Section~\ref{sec:model} acts as an
 anti-herding device.
 % Numbers: results/curtailment_*.csv (F24).
+
+\section{Who Produced the Saving?}
+\label{sec:attribution}
+Carbon-aware schedulers credit the saving to the workload: a job ``saved'' its grams by waiting.
+The virtual battery has two inputs, though: the users' flexible work $\varphi$ (its energy) and the
+operator's headroom $h$ (its charge power). Theorem~\ref{thm:homog} makes the split exact.
+\begin{proposition}[Euler attribution]\label{prop:euler}
+$S$ is concave and homogeneous of degree one in $(\varphi,h)$, so for every supergradient
+\[ S=\varphi\,\partial_\varphi S+h\,\partial_hS, \]
+which is also the Aumann--Shapley value~\cite{aumann1974values} of the two inputs (Euler's theorem; product exhaustion~\cite{wicksteed1894an}). Let $\sigma_h=h\,\partial_hS/S$ be the
+capacity share. The counterfactual savings of all jobs (each job's flexibility removed in turn)
+sum to $(1-\sigma_h)S$, so per-job claims at the average rate overstate them by
+$1/(1-\sigma_h)$; flexibility and headroom are complements, $\partial^2_{\varphi h}S\ge0$. For the
+sinusoidal day of Proposition~\ref{prop:sinc}, $\sigma_h=(1-q)(1-\pi q\cot\pi q)$, which tends
+to $1$ as $h\to0$ and to $0$ as $h\to\infty$.
+\end{proposition}
+\emph{Evidence.} On 120 zones (2022, $\varphi=0.5$, 24\,h slack, exact LP; cap duals for
+$\partial_hS$, finite differences for $\partial_\varphi S$) the Euler residual is at most 0.44\% of
+$S$. The capacity share is a median 0.55 at $+20\%$ headroom (10--90\%: 0.40--0.80; capacity is
+the larger input in 77\% of zones; per-job claims overstate by $2.2\times$) and 0.43 at the
+Google-real $+42\%$ (0.30--0.76; $1.7\times$), with the same medians in 2020 and 2021
+(Figure~\ref{fig:attribution}). The closed form overstates it (0.80 at $+20\%$) because the LP
+stores work across days. What sets the split is not the size of the swing but its regularity:
+$\sigma_h$ rank-correlates with the share of hourly variance in the average daily shape at 0.82
+(with the daily standard deviation at only 0.35). On clock-like grids (Korea, India, Israel) the
+battery is power-limited and capacity produces 90--100\% of the saving: at $+20\%$ in Korea a
+tenant's flexibility is worth nothing at the margin. On weather-driven grids (Nordic hydro,
+Pacific Northwest) it is energy-limited and flexibility produces 75--95\%. US balancing
+authorities give 0.57/0.45 on the average signal and 0.67/0.58 on the marginal signal
+($+20\%$/$+42\%$).
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.6\linewidth]{fig_attribution.pdf}
+\caption{Capacity share of the shifting saving against headroom per unit of flexible load:
+sinusoidal closed form (Proposition~\ref{prop:euler}) and the exact LP on 120 zones (2022).}
+\label{fig:attribution}
+\end{figure}
+Shapley attribution of a cloud's \emph{emissions} among workloads~\cite{han2025fairco} and the
+dependence of reported savings on the accounting method~\cite{maji2024the} are known; the split
+of a \emph{saving} between the inputs that jointly produce it is, to our knowledge, new. It is the
+same capacity whose standby load (\S\ref{sec:idle}) and price (\S\ref{sec:mac}) bound the
+theory, so the part of the saving that capacity produces is also the part that costs.
+% Numbers: results/attribution_*.csv (F35); tests/test_attribution.py; scripts/attribution_experiments.py.
 
 \section{Two Batteries on One Grid}
 \label{sec:twobatteries}
@@ -297,6 +361,7 @@ that sleeps when idle. It is a by-product of capacity, never a reason to build i
 % Numbers: results/abatement_*.csv (F34); tests/test_abatement.py; scripts/abatement_experiments.py.
 
 \section{Not Every Knob Is a Battery}
+\label{sec:knob}
 \begin{theorem}[Power-mean law]\label{thm:powermean}
 Let a day's work $W=n$ be run at speeds $s_t\ge0$, $\sum_t s_t=n$, with power $s_t^{\alpha}$
 ($\alpha>1$) and carbon $\sum_t c_t s_t^\alpha$, $c_t>0$. The optimum is
@@ -445,6 +510,25 @@ terms with $d_t>0$ are at most $(c^{\max}-c_t)h$. Hence
 $S(h)\le\frac hL\sum_t(c^{\max}-c_t)=h(c^{\max}-\bar c)$, so $v(h)\le c^{\max}-\bar c$. One kW
 with value $v$ for 8{,}760 hours saves $8.76\cdot10^{-3}v$ tonnes, which gives the floor and the
 required swing. \hfill$\square$
+
+\paragraph{Proof of Proposition~\ref{prop:euler}.} The optimal cost of a linear programme is
+convex in its right-hand side, the right-hand sides of \eqref{eq:lp} are linear in
+$(\varphi,h)$, and the baseline is linear in $\varphi$, so $S$ is concave on $\{\varphi>0,h\ge0\}$;
+by Theorem~\ref{thm:homog} it is positively homogeneous of degree one. Let $g$ be any
+supergradient at $x=(\varphi,h)$. For $t>0$, concavity gives $tS(x)=S(tx)\le S(x)+(t-1)\,g\cdot x$,
+i.e.\ $(t-1)(S(x)-g\cdot x)\le0$ for $t>1$ and $t<1$, hence $g\cdot x=S(x)$: Euler's identity holds
+for every supergradient, including the LP duals at a degenerate basis. Where $S$ is
+differentiable its gradient is homogeneous of degree zero, so the Aumann--Shapley value
+$x_i\int_0^1\partial_iS(\tau x)\,d\tau$ equals $x_i\partial_iS(x)$. A job carrying flexible load
+$\epsilon$ has counterfactual saving $S(\varphi,h)-S(\varphi-\epsilon,h)=\epsilon\,\partial_\varphi S+o(\epsilon)$,
+and summing over jobs gives $\varphi\,\partial_\varphi S=(1-\sigma_h)S$. Complementarity: differentiating
+$\varphi\,\partial_{\varphi}S+h\,\partial_{h}S=S$ in $\varphi$ gives
+$\varphi\,\partial^2_{\varphi\varphi}S+h\,\partial^2_{\varphi h}S=0$, and concavity
+($\partial^2_{\varphi\varphi}S\le0$) gives $\partial^2_{\varphi h}S\ge0$. For the sinusoid,
+$S=\varphi A f(q)$ with $f(q)=\sinc(\pi q)$ and $q=\varphi/(\varphi+h)$; $\partial_hS=-Aq^2f'(q)$ and
+$h=\varphi(1-q)/q$, so $\sigma_h=-q(1-q)f'(q)/f(q)$, and $f'/f=\pi\cot(\pi q)-1/q$ gives
+$\sigma_h=(1-q)(1-\pi q\cot\pi q)$. As $q\to1$, $\pi q\cot\pi q\approx-q/(1-q)$ and $\sigma_h\to1$; as
+$q\to0$, $\pi q\cot\pi q=1-(\pi q)^2/3+O(q^4)$. \hfill$\square$
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}   % generated by scripts/build_bib.py

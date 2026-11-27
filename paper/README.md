@@ -6,7 +6,7 @@
   Sections marked TODO are to be ported from `scripts/build_workshop_battery.py`.
 
 Build with `latexmk -pdf main.tex` on a machine with TeX Live (`acmart` is part of it). It compiles
-cleanly as of 2026-11-26 (9 pages, no undefined references; BibTeX warns about missing pages/publishers);
+cleanly as of 2026-11-27 (11 pages, no undefined references; BibTeX warns about missing pages/publishers);
 the compiled draft is `sigmetrics/main.pdf`. Vector figures: `scripts/build_workshop_battery.py --figures-only`,
-`scripts/{storage_competition,idle,abatement}_experiments.py --plot-only`.
+`scripts/{storage_competition,idle,abatement,attribution}_experiments.py --plot-only`.
 Regenerate the bibliography with `python scripts/build_bib.py`.

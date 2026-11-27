@@ -37,6 +37,11 @@ EXTRA = [
     "Bloomberg New Energy Finance. Energy Storage Systems Cost Survey 2025. BNEF report, 2025.",
     "Turner & Townsend. Data Centre Construction Cost Index 2025-2026. Industry report, 2025.",
     "J. Lindberg, Y. Abdennadher, J. Chen, B. C. Lesieutre, L. Roald. A Guide to Reducing Carbon Emissions through Data Center Geographical Load Shifting. ACM e-Energy, 2021.",
+    # F35 (who produced the saving)
+    "L. Han, J. Kakadia, B. C. Lee, U. Gupta. Fair-CO2: Fair Attribution for Cloud Carbon Emissions. ISCA, 646-663, 2025.",
+    "D. Maji, N. Bashir, D. Irwin, P. Shenoy, R. K. Sitaraman. The Green Mirage: Impact of Location- and Market-based Carbon Intensity Estimation on Carbon Optimization Efficacy. ACM e-Energy, 2024.",
+    "P. H. Wicksteed. An Essay on the Co-ordination of the Laws of Distribution. Macmillan, 1894.",
+    "R. J. Aumann, L. S. Shapley. Values of Non-Atomic Games. Princeton University Press, 1974.",
 ]
 
 CONFERENCES = ("EuroSys", "e-Energy", "ASPLOS", "Middleware", "BuildSys", "SIGMETRICS", "FOCS", "HotCarbon",
@@ -45,7 +50,7 @@ CONFERENCES = ("EuroSys", "e-Energy", "ASPLOS", "Middleware", "BuildSys", "SIGME
 
 def entry_type(venue: str) -> tuple[str, str]:
     """(BibTeX type, field) for a venue string: conference -> inproceedings, journal -> article, else misc."""
-    head = re.sub(r",?\s*(?:19|20)\d\d.*$", "", venue).strip()
+    head = re.sub(r",?\s*(?:18|19|20)\d\d.*$", "", venue).strip()
     if any(c in head for c in CONFERENCES):
         return "inproceedings", "booktitle"
     if re.search(r"\d+\(\d+\)|\b\d+, \d", venue) and not re.search(r"Working Paper|Communication|White paper", venue):
@@ -66,7 +71,7 @@ def parse(ref: str) -> dict:
     authors = parts[0] if parts else ref
     title = parts[1] if len(parts) > 1 else ""
     rest = ". ".join(parts[2:]).rstrip(".")
-    years = re.findall(r"(?:19|20)\d\d", ref)
+    years = re.findall(r"(?:18|19|20)\d\d", ref)
     year = years[-1] if years else ""
     return {"authors": authors, "title": title.rstrip("."), "venue": rest, "year": year}
 
