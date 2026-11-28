@@ -86,6 +86,9 @@ on Electricity Maps traces for 123 grid zones over three years~\cite{maps2022hou
   helps, why tight caps plan beyond the slack, and why signals blend for load but not for storage.
 \item A storage exchange rate: with +20\% headroom a half-flexible facility is worth a median
   4.3\,kWh of 4\,h Li-ion storage per kW of load, at 1/31 of the embodied carbon.
+\item The correlation law (\S\ref{sec:signal}): a schedule optimised on one carbon signal keeps
+  $\rho$ of another signal's optimum, $\rho$ the correlation of their daily shapes
+  ($R^2=0.93$ over 264 pairs). Methodology changes the reported saving far more than the schedule.
 \item Who produced the saving: because $S$ is homogeneous and concave, Euler's theorem splits it
   exactly between the users' flexibility and the operator's headroom (\S\ref{sec:attribution}).
   At realistic headroom capacity produces most of the saving, so per-job carbon claims overstate
@@ -236,6 +239,62 @@ of a \emph{saving} between the inputs that jointly produce it is, to our knowled
 same capacity whose standby load (\S\ref{sec:idle}) and price (\S\ref{sec:mac}) bound the
 theory, so the part of the saving that capacity produces is also the part that costs.
 % Numbers: results/attribution_*.csv (F35); tests/test_attribution.py; scripts/attribution_experiments.py.
+
+\section{Which Signal? The Correlation Law}
+\label{sec:signal}
+Every number so far is measured on one carbon signal. It is not a measurement but a
+methodology: for the same US grid-hour, a production-based average (the balancing authority's own
+generation mix) and a consumption-based, flow-traced average (Electricity Maps,
+following~\cite{chalendar2019tracking}) are both defensible, and the marginal signal is a third.
+A scheduler optimises on one signal and reports its saving on the same one. What does that
+schedule save under another? Write $\delta c_t$ for an hour's deviation from its day's mean.
+\begin{proposition}[Correlation law]\label{prop:rho}
+For any cap and slack within a day, $S_c(x)=-\frac1T\sum_t\delta c_t\,(x_t-\varphi)$, the
+within-day covariance of signal and flexible draw. Let $x^A$ be optimal on signal $A$. If
+$\mathbb{E}[\delta B_t\mid A]=\beta\,\delta A_t$ with $\beta=\rho\,\sigma_B/\sigma_A$, then
+\[ \mathbb{E}\,S_B(x^A)=\beta\,S_A(x^A),\qquad
+   \frac{\mathbb{E}\,S_B(x^A)}{S_B(x^B)}=\rho \]
+when $\delta A/\sigma_A$ and $\delta B/\sigma_B$ have the same distribution; $\rho$ is the
+correlation of the two signals' within-day deviations. The \emph{decision} keeps $\rho$ of
+the other signal's optimum; the \emph{claim} is confirmed at rate $\beta$, which also carries
+the ratio of the two swings.
+\end{proposition}
+The second statement is the optimiser's curse~\cite{smith2006the} in regression form: a saving
+reported on the signal that chose the schedule is shrunk, on any other signal, by the reliability
+of the daily shape.
+
+\emph{Evidence.} 44 US balancing authorities with a daily shape on both average signals (2022,
+$\varphi=0.5$, 24\,h slack). The two averages agree on \emph{when}: $\rho$ has median 0.90, a
+schedule optimised on one keeps a median 0.87--0.91 of the other's optimum ($+20\%$, $+42\%$,
+uncapped; the sliding-window LP gives 0.90), below one half in only 4 BAs (TIDC, BANC, GVL, JEA).
+They disagree on \emph{how much}: the reported saving in g/kWh differs by more than $1.5\times$ in
+11 of 44 BAs (10--90\%: $0.78$--$2.0\times$, extremes $0.41\times$ PSEI and $3.3\times$ SPA). In
+four hydro BAs (CHPD, DOPD, GCPD, TPWR) the production signal is constant, so shifting saves
+nothing; the flow-traced signal credits it with 2.5--10.5\%. Across all three signals and both
+directions (264 schedule/signal pairs, including average vs marginal, where $\rho\approx0$),
+the realised share regresses on $\rho$ with slope 1.01, intercept 0.002 and $R^2=0.93$; median
+absolute error 0.016 between the two averages and 0.055 against the marginal signal
+(Figure~\ref{fig:provenance}). One number, computable without an optimiser, says how far any
+saving transfers to another signal; it predicts the average-vs-marginal failure (a schedule
+on one keeps about nothing of the other's optimum~\cite{sukprasert2024onb}) as the
+$\rho\approx0$ case.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_provenance.pdf}
+\caption{Left: share of another signal's optimum kept by a schedule optimised on one signal, against
+the correlation of their within-day shapes (264 pairs, 44 BAs, $+20\%$ headroom); dashed: $\rho$.
+Right: the saving reported on Electricity Maps over the saving reported on the EIA-930
+production signal, each on its own optimal schedule.}
+\label{fig:provenance}
+\end{figure}
+This changes what a carbon-aware result can claim. The ranking of hours, the thing the
+scheduler acts on, is robust to methodology; the magnitude, the thing sustainability reports
+publish, is not, and its error (a median factor 1.1, a quarter of BAs off by $1.5\times$) is
+larger than the cost of realistic day-ahead forecast error on the same traces (0.8--2.9\% of
+emissions). Savings should be reported with the $\rho$ to a second signal. Unlike the location- vs
+market-based gap~\cite{maji2024the}, which comes from contracts, this one is inside the
+location-based family.
+% Numbers: results/provenance_*.csv (F36); tests/test_provenance.py; scripts/provenance_experiments.py.
 
 \section{Two Batteries on One Grid}
 \label{sec:twobatteries}
@@ -420,6 +479,40 @@ surveys as reported in trade press, a 3--10\% discount rate and the US SCC; elec
 savings are stated as a requirement (dollars per moved MWh), not estimated, because no hourly
 prices are used. Lower carbon prices (e.g.\ the EU ETS) strengthen the conclusion.
 
+\textbf{Which signal.} Every result uses one signal at a time. Section~\ref{sec:signal} shows the
+schedule transfers between the two average methodologies ($\rho\approx0.9$) but the reported
+magnitude does not; the comparison is US-only (2022), and both averages use lifecycle factors,
+so the gap measured is flow tracing plus data processing, not the choice of emission factor.
+
+\section{Conclusion}
+\label{sec:conclusion}
+A power-capped flexible workload is a lossless battery with energy $s\varphi$, discharge power
+$\varphi$ and charge power $h$, and water-filling solves it in closed form. The theory explains
+why shifting keeps about half its ideal saving at real headroom, why a UPS barely helps, and
+what a kilowatt of capacity is worth. Its boundaries are as sharp as its core
+(Table~\ref{tab:boundaries}): the battery is the \emph{when} knob, not the \emph{how fast}; grid
+storage competes it away; it needs capacity that sleeps; it is never worth building; most of
+its output is the operator's capacity; and its size depends on the methodology of the signal
+far more than its timing does. The practical reading is that carbon-aware shifting is a
+by-product of capacity a facility already owns, to be used and reported honestly, not bought.
+\begin{table}[t]
+\caption{The battery and its boundaries: one rule each.}
+\label{tab:boundaries}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Boundary & Closed form & Rule \\
+\midrule
+Knob (\S\ref{sec:knob}) & $1-\Mp_p(c)/\Mp_1(c)$, $O(\mathrm{CV}^2)$ & shift \emph{when}, not \emph{how fast} \\
+Grid (\S\ref{sec:twobatteries}) & value $\to(1-\eta)\times$ today & storage competes it away \\
+Hardware (\S\ref{sec:idle}) & pays iff $p_0<v/(v+\bar c)$ & shift onto capacity that sleeps \\
+Money (\S\ref{sec:mac}) & MAC $=\kappa/(8.76\cdot10^{-3}v)$ & use the battery, never buy it \\
+Attribution (\S\ref{sec:attribution}) & $S=\varphi\partial_\varphi S+h\partial_hS$ & credit the capacity \\
+Signal (\S\ref{sec:signal}) & kept $=\rho$, confirmed $=\beta$ & report $\rho$ to a second signal \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \appendix
 \section{Proofs}
 
@@ -529,6 +622,18 @@ $S=\varphi A f(q)$ with $f(q)=\sinc(\pi q)$ and $q=\varphi/(\varphi+h)$; $\parti
 $h=\varphi(1-q)/q$, so $\sigma_h=-q(1-q)f'(q)/f(q)$, and $f'/f=\pi\cot(\pi q)-1/q$ gives
 $\sigma_h=(1-q)(1-\pi q\cot\pi q)$. As $q\to1$, $\pi q\cot\pi q\approx-q/(1-q)$ and $\sigma_h\to1$; as
 $q\to0$, $\pi q\cot\pi q=1-(\pi q)^2/3+O(q^4)$. \hfill$\square$
+
+\textbf{Proof of Proposition~\ref{prop:rho}.} Within a day every feasible schedule serves the
+day's arrivals, $\sum_{t\in d}(x_t-\varphi)=0$, so the day-mean part of $c_t$ contributes nothing and
+$S_c(x)=\frac1T\sum_t c_t(\varphi-x_t)=-\frac1T\sum_t\delta c_t(x_t-\varphi)$. The schedule $x^A$
+is a function of $A$ alone, so by the tower property
+$\mathbb{E}\,S_B(x^A)=-\frac1T\sum_t\mathbb{E}[\mathbb{E}[\delta B_t\mid A](x^A_t-\varphi)]
+=-\frac{\beta}{T}\sum_t\delta A_t(x^A_t-\varphi)=\beta S_A(x^A)$. The optimal saving depends on the
+signal only through each day's sorted deviations (order statistics, \S\ref{sec:waterfill}) and is
+positively homogeneous of degree one in them, so if $\delta B/\sigma_B\overset{d}{=}\delta A/\sigma_A$
+then $S_B(x^B)=(\sigma_B/\sigma_A)S_A(x^A)$ in expectation, and the ratio is
+$\beta\sigma_A/\sigma_B=\rho$. Jointly Gaussian (or elliptical) deviations satisfy both
+assumptions; an affine relabelling $B=a+bA$ gives $\rho=1$, $\beta=b$. \hfill$\square$
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}   % generated by scripts/build_bib.py

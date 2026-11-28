@@ -42,6 +42,9 @@ EXTRA = [
     "D. Maji, N. Bashir, D. Irwin, P. Shenoy, R. K. Sitaraman. The Green Mirage: Impact of Location- and Market-based Carbon Intensity Estimation on Carbon Optimization Efficacy. ACM e-Energy, 2024.",
     "P. H. Wicksteed. An Essay on the Co-ordination of the Laws of Distribution. Macmillan, 1894.",
     "R. J. Aumann, L. S. Shapley. Values of Non-Atomic Games. Princeton University Press, 1974.",
+    # F36 (which signal? the correlation law)
+    "J. A. de Chalendar, J. Taggart, S. M. Benson. Tracking Emissions in the US Electricity System. Proceedings of the National Academy of Sciences 116(51), 25497-25502, 2019.",
+    "J. E. Smith, R. L. Winkler. The Optimizer's Curse: Skepticism and Postdecision Surprise in Decision Analysis. Management Science 52(3), 311-322, 2006.",
 ]
 
 CONFERENCES = ("EuroSys", "e-Energy", "ASPLOS", "Middleware", "BuildSys", "SIGMETRICS", "FOCS", "HotCarbon",

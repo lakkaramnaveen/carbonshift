@@ -632,6 +632,29 @@ Carbon-aware tools credit a saving to the *workload*: a job "saved" its grams by
 
 *Why it matters.* A job's "saved by waiting" is half someone else's: the operator's idle capacity, the same input whose standby load (F33) and price (F34) bound the theory. Carbon dashboards, SDKs and per-job reports that credit the whole saving to the job overstate its counterfactual about 2×, more on solar/clock-like grids; incentive schemes that pay users for declaring flexibility pay for the abundant input there. *Prior work:* Shapley attribution of cloud *emissions* among workloads (Fair-CO2, ISCA'25; Han et al., HotCarbon'24); dependence of reported savings on the accounting method (The Green Mirage, e-Energy'24). We found no attribution of a shifting *saving* between the inputs that jointly produce it. *Limitations:* fluid work; one φ; the job-level counterfactual assumes the job would still run (inflexibly) inside the same cap; slack-6 h Euler residuals reach 11% in one zone (a finite difference across a kink of the piecewise-linear LP).
 
+## 5o. Which signal? The correlation law
+
+Every carbon-aware number, including every number above, is measured on one carbon signal and reported on the same one. But the signal is a methodology, not a measurement: for the same US grid-hour, a **production-based** average (the balancing authority's own generation mix, built here from EIA-930) and a **consumption-based, flow-traced** average (Electricity Maps, the EuroSys'24 data) are both defensible, and the marginal signal is a third.
+
+**Law.** Within a day the saving of a schedule x is S_c(x) = -T⁻¹ Σ δc_t (x_t - φ), the covariance of the signal's within-day deviations with the flexible draw (F25). If the deviations of signal B regress linearly on A, E[δB | A] = β δA with β = ρ σ_B/σ_A, then the schedule optimised on A saves **E S_B(x^A) = β S_A(x^A)** under B (the optimiser's curse, Smith & Winkler 2006, in regression form), and when the two standardised shapes have the same distribution it keeps **ρ of B's optimum**. ρ, the correlation of the two signals' daily shapes, needs no optimiser.
+
+**Evidence** (44 US BAs with a daily shape on both signals, 2022, φ = 0.5, 24 h slack; `scripts/provenance_experiments.py`):
+
+| | +20% | +42% | uncapped |
+|---|---|---|---|
+| median ρ (within-day shapes) | 0.90 | 0.90 | 0.90 |
+| schedule on EM, share of EIA optimum kept | 0.91 | 0.90 | 0.89 |
+| schedule on EIA, share of EM optimum kept | 0.87 | 0.90 | 0.90 |
+| BAs where either keeps < 1/2 | 4 | 4 | 2 |
+| reported saving EM ÷ EIA, median (10-90%) | 1.10 (0.78-2.0) | 1.10 (0.84-1.8) | 1.14 (0.87-1.8) |
+| BAs with reported saving off by > 1.5x | 11 | 11 | 11 |
+
+- **Agree on when, disagree on how much.** The schedule transfers (sliding-window LP: 0.90 kept); the magnitude does not (PSEI 0.41x, SPA 3.3x). In four hydro BAs (CHPD, DOPD, GCPD, TPWR) the production signal is constant, so shifting saves nothing, while the flow-traced signal credits it with 2.5-10.5%.
+- **One law for every signal pair.** Over the three signals (EM average, EIA average, EIA marginal), both directions, 264 pairs at +20%: **kept = 1.01 ρ + 0.002, R² = 0.93**. Average vs marginal (F17) is the ρ ≈ 0 case: a schedule on one keeps about nothing of the other's optimum.
+- **Rankings.** Across BAs the two averages rank level at Spearman 0.87, swing at 0.77, and the saving at 0.74, so methodology matters more for *where shifting pays* than for *which grid is dirty*.
+
+**Why it matters.** The quantity the scheduler acts on (the ranking of hours) is robust to methodology; the quantity sustainability reports publish (grams saved) is not, and its error (a quarter of BAs off by 1.5x) exceeds the cost of realistic forecast error (F11, 0.8-2.9% of emissions). A carbon-aware result should be reported with ρ to a second signal. This is a different gap from The Green Mirage's location- vs market-based one (Maji et al., e-Energy'24): it sits inside the location-based family. Caveats: US only, 2022; both averages use lifecycle factors, so the measured gap is flow tracing and data processing, not the emission-factor choice.
+
 ## 6. Takeaways
 
 1. The EuroSys'24 temporal upper bounds are also **power** upper bounds: reaching them assumes a facility can draw many times its average load. A useful practical bound is the **saving-vs-headroom curve**, which depends on the electrical design.
